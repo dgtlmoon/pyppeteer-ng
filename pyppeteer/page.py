@@ -91,7 +91,7 @@ class Page(EventEmitter):
         screenshotTaskQueue: list = None,
     ) -> 'Page':
         """Async function which makes new page object."""
-        await client.send('Page.enable'),
+        await client.send('Page.enable')
         frameTree = (await client.send('Page.getFrameTree'))['frameTree']
         page = Page(client, target, frameTree, ignoreHTTPSErrors, screenshotTaskQueue)
 
@@ -607,7 +607,8 @@ function addPageBinding(bindingName) {
             except Exception as e:
                 debugError(logger, e)
 
-        await asyncio.wait([_evaluate(frame, expression) for frame in self.frames])
+        loop = asyncio.get_event_loop()
+        await asyncio.wait([loop.create_task(_evaluate(frame, expression)) for frame in self.frames])
 
     async def authenticate(self, credentials: Dict[str, str]) -> Any:
         """Provide credentials for http authentication.
