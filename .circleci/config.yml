@@ -88,7 +88,7 @@ jobs:
 
   mypy:
     docker:
-      - image: circleci/python:3.6
+      - image: circleci/python:3.8
     environment:
       TOXENV: mypy
       MYPY_JUNIT_XML_PATH: /tmp/tests/mypy/results.xml
@@ -117,4 +117,3 @@ jobs:
       - run:
           name: Check code style
           command: tox
-

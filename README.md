@@ -1,6 +1,3 @@
-### Attention: This repo is only slightly unmaintained :)
-
-
 pyppeteer
 ==========
 
