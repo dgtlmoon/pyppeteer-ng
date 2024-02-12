@@ -239,7 +239,7 @@ class Page(AsyncIOEventEmitter):
     def _onTargetCrashed(self) -> None:
         self.emit('error', PageError('Page crashed!'))
 
-    def _onLogEntryAdded(self, event: Dict) -> None:
+    async def _onLogEntryAdded(self, event: Dict) -> None:
         entry = event.get('entry', {})
         level = entry.get('level', '')
         text = entry.get('text', '')
@@ -248,7 +248,7 @@ class Page(AsyncIOEventEmitter):
         url = entry.get('url', '')
         lineNumber = entry.get('lineNumber')
         for arg in args:
-            helpers.releaseObject(self._client, arg)
+            await helpers.releaseObject(self._client, arg)
 
         if source != 'worker':
             self.emit(Events.Page.Console, ConsoleMessage(level, text, location={'url': url, 'lineNumber': lineNumber}))
