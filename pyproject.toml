@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyppeteer-ng"
-version = "2.0.0rc2"
+version = "2.0.0rc3"
 description = "Headless chrome/chromium automation library (unofficial port of puppeteer)"
 readme = 'README.md'
 license = "MIT"
