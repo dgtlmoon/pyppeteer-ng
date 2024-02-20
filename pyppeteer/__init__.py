@@ -9,7 +9,7 @@ from appdirs import AppDirs
 
 __author__ = 'Hiroyuki Takagi, Bernardas Ališauskas, Matt Marcus'
 __email__ = 'pyppeteer@protonmail.com'
-__version__ = '2.0.0rc2'
+__version__ = '2.0.0rc4'
 __chromium_revision__ = '722234'
 __base_puppeteer_version__ = 'v2.1.1'
 __pyppeteer_home__ = os.environ.get('PYPPETEER_HOME', AppDirs('pyppeteer').user_data_dir)  # type: str
