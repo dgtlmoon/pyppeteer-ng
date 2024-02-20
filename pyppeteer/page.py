@@ -1100,6 +1100,17 @@ class Page(AsyncIOEventEmitter):
         source = helpers.evaluationString(pageFunction, *args)
         await self._client.send('Page.addScriptToEvaluateOnNewDocument', {'source': source,})
 
+    async def evaluateRawOnNewDocument(self, pageFunction: str) -> None:
+        """Add a JavaScript function to the document, without the evaluation wrapper
+
+        This function would be invoked in one of the following scenarios:
+
+        * whenever the page is navigated
+        * whenever the child frame is attached or navigated. In this case, the
+          function is invoked in the context of the newly attached frame.
+        """
+        await self._client.send('Page.addScriptToEvaluateOnNewDocument', {'source': pageFunction,})
+
     async def setCacheEnabled(self, enabled: bool = True) -> None:
         """Enable/Disable cache for each request.
 
