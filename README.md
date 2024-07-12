@@ -9,7 +9,7 @@ pyppeteer
 
 _Note: this is a continuation of the [pyppeteer project](https://github.com/miyakogi/pyppeteer)_
 
-Unofficial Python port of the `dev` branch of [pyppeteer](https://github.com/pyppeteer/pyppeteer) [puppeteer](https://github.com/GoogleChrome/puppeteer) JavaScript (headless) chrome/chromium browser automation library.
+Unofficial Python port of the `dev` branch of [pyppeteer](https://github.com/pyppeteer/pyppeteer) which is an unofficial port of [puppeteer](https://github.com/GoogleChrome/puppeteer) JavaScript (headless) chrome/chromium browser automation library :)
 
 * Free software: MIT license (including the work distributed under the Apache 2.0 license)
 * Documentation: https://pyppeteer.github.io/pyppeteer/
