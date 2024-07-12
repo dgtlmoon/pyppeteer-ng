@@ -1,8 +1,6 @@
 pyppeteer-ng
 ==========
 
-This is an experimental fork of https://github.com/pyppeteer/pyppeteer , but with a little more salt and pepper to support https://github.com/dgtlmoon/changedetection.io.
-
 Unofficial Python port of the `dev` branch of [pyppeteer](https://github.com/pyppeteer/pyppeteer) which is an unofficial port of [puppeteer](https://github.com/GoogleChrome/puppeteer) JavaScript (headless) chrome/chromium browser automation library :)
 
 This is based on pyppeteer [![PyPI](https://img.shields.io/pypi/v/pyppeteer.svg)](https://pypi.python.org/pypi/pyppeteer) **`master` with `dev` branch merged**
