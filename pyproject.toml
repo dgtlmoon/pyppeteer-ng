@@ -49,7 +49,7 @@ ordered_set = "^4.0.1"
 pillow = ">=9.3"
 pyee = "^11.0.0"
 tqdm = "^4.42.1"
-typing_extensions = { version ="^3.7.4", python = '>=3.8'}
+typing_extensions = { version =">=4.0.0", python = '>=3.8'}
 typing_inspect = { version ="^0.5.0", python = '>=3.8'}
 urllib3 = "^1.25.8"
 websockets = "^10.1"
