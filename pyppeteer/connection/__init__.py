@@ -110,6 +110,15 @@ class Connection(AsyncIOEventEmitter):
                     logger.warning(f'Transport connection closed: {excpt}')
                     self._connected = False
                     break
+                except AttributeError as excpt:
+                    # Handle case where ws attribute might be None after disposal
+                    if "'NoneType' object has no attribute 'recv'" in str(excpt):
+                        logger.warning("Connection already closed (websocket is None)")
+                        self._connected = False
+                        break
+                    else:
+                        # Re-raise other attribute errors
+                        raise
         
         except asyncio.CancelledError:
             # Handle task cancellation gracefully
@@ -124,7 +133,9 @@ class Connection(AsyncIOEventEmitter):
             if self._connected and not self._closed:
                 self._connected = False
                 await self.dispose(reason=str(excpt))
-            raise excpt
+            # Don't re-raise the exception to avoid unhandled exceptions
+            # in background tasks - just exit the loop by returning
+            return
             
         finally:
             # Only run disposal if we didn't already start it and it wasn't
