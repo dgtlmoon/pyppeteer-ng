@@ -1,11 +1,11 @@
 [tool.poetry]
 name = "pyppeteer-ng"
-version = "2.0.0rc8"
+version = "2.0.0rc9"
 description = "Headless chrome/chromium automation library (unofficial port of puppeteer)"
 readme = 'README.md'
 license = "MIT"
-homepage = "https://github.com/pyppeteer/pyppeteer"
-repository = "https://github.com/pyppeteer/pyppeteer"
+homepage = "https://github.com/dgtlmoon/pyppeteer-ng"
+repository = "https://github.com/dgtlmoon/pyppeteer-ng"
 keywords=['pyppeteer', 'puppeteer', 'chrome', 'chromium']
 authors = [
     "granitosaurus <bernardas.alisauskas@pm.me>",

@@ -30,7 +30,9 @@ async def future_race(*fs) -> Union[None, Exception]:
 
     :raises Exception: any exception raised by asyncio.wait call. Any exception raised from the first future is returned
     """
-    done, _ = await asyncio.wait(fs, return_when=asyncio.FIRST_COMPLETED,)
+    # Ensure we're only passing proper awaitable objects, not coroutines
+    tasks = [asyncio.ensure_future(f) if asyncio.iscoroutine(f) else f for f in fs]
+    done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
     try:
         return done.pop().result()
     except Exception as e:
@@ -65,19 +67,39 @@ def getExceptionMessage(exceptionDetails: dict) -> str:
     return message
 
 
-def addEventListener(emitter: AsyncIOEventEmitter, eventName: str, handler: Callable) -> Dict[str, Any]:
-    """Add handler to the emitter and return emitter/handler."""
-    emitter.on(eventName, handler)
+def addEventListener(emitter: AsyncIOEventEmitter, eventName: str, handler: Callable[..., Any]) -> Dict[str, Any]:
+    """Add handler to the emitter and return emitter/handler.
+    
+    Args:
+        emitter: The event emitter to attach the handler to
+        eventName: The event name to listen for
+        handler: The callback function to execute when the event is emitted
+        
+    Returns:
+        A dictionary containing references to the emitter, event name, and handler
+    """
+    # In pyee 12+, handler is directly passed to add_listener/on rather than wrapped in a coroutine
+    emitter.add_listener(eventName, handler)
     return {'emitter': emitter, 'eventName': eventName, 'handler': handler}
 
 
 def removeEventListeners(listeners: List[dict]) -> None:
-    """Remove listeners from emitter."""
+    """Remove listeners from emitter.
+    
+    Args:
+        listeners: A list of listener dictionaries as returned by addEventListener
+    """
     for listener in listeners:
         emitter = listener['emitter']
         eventName = listener['eventName']
         handler = listener['handler']
-        emitter.remove_listener(eventName, handler)
+        # In pyee 12+, we need to ensure we're removing the exact handler we added
+        try:
+            # Use the type-safe remove_listener method
+            emitter.remove_listener(eventName, handler)
+        except Exception as e:
+            # Handle case where listener may have already been removed
+            logger.debug(f"Error removing event listener: {e}")
     listeners.clear()
 
 
@@ -122,37 +144,68 @@ def waitForEvent(
     timeout: Optional[float],
     loop: asyncio.AbstractEventLoop,
 ) -> Awaitable:
-    """Wait for an event emitted from the emitter."""
+    """Wait for an event emitted from the emitter.
+    
+    Args:
+        emitter: The event emitter to listen to
+        eventName: The event name to wait for
+        predicate: A function that determines if the event matches the criteria
+        timeout: Optional timeout in milliseconds
+        loop: The asyncio event loop
+        
+    Returns:
+        A future that resolves with the event data when a matching event is emitted
+        
+    Raises:
+        TimeoutError: If the timeout is reached before a matching event is emitted
+    """
+    # Create a future for the event
     future = loop.create_future()
-
-    def resolveCallback(target: Any) -> None:
-        future.set_result(target)
-
-    def rejectCallback(exception: Exception) -> None:
-        future.set_exception(exception)
-
-    async def timeoutTimer() -> None:
-        if timeout:
-            await asyncio.sleep(timeout / 1000)
-        else:
-            await asyncio.get_event_loop().create_future()
-        rejectCallback(TimeoutError('Timeout exceeded while waiting for event'))
-
+    timeout_task = None
+    
+    # In pyee 12+, we can use a simplified approach with better error handling
     def _listener(target: Any) -> None:
         if not predicate(target):
             return
         cleanup()
-        resolveCallback(target)
+        if not future.done():
+            future.set_result(target)
 
+    # Add the event listener
     listener = addEventListener(emitter, eventName, _listener)
-    if timeout:
-        eventTimeout = loop.create_task(timeoutTimer())
-
+    
     def cleanup() -> None:
         removeEventListeners([listener])
-        if timeout:
-            eventTimeout.cancel()
+        if timeout_task and not timeout_task.done():
+            timeout_task.cancel()
+            
+    # Ensure future is cleaned up when done
+    def done_callback(_):
+        if not future.done():
+            cleanup()
+    
+    future.add_done_callback(done_callback)
 
+    # Handle timeout for both approaches
+    if timeout:
+        async def timeout_handler():
+            try:
+                await asyncio.sleep(timeout / 1000)
+                if not future.done():
+                    future.set_exception(TimeoutError('Timeout exceeded while waiting for event'))
+            except asyncio.CancelledError:
+                # Timer was cancelled, do nothing
+                pass
+                
+        timeout_task = loop.create_task(timeout_handler())
+        
+        # Make sure timeout task is cleaned up
+        def timeout_cleanup(fut):
+            if timeout_task and not timeout_task.done():
+                timeout_task.cancel()
+                
+        future.add_done_callback(timeout_cleanup)
+        
     return future
 
 
@@ -239,7 +292,7 @@ async def readProtocolStream(client: CDPSession, handle: str, path: Union[Path, 
         eof = response.get('eof', False)
     await client.send('IO.close', {'handle': handle})
 
-    result = ''.join(bufs)
+    result = ''.join(buffs)  # Fixed variable name from bufs to buffs
     if path:
         Path(path).write_text(result)
     return result
