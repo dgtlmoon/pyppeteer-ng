@@ -14,6 +14,14 @@ Unofficial Python port of the `dev` branch of [pyppeteer](https://github.com/pyp
 * Free software: MIT license (including the work distributed under the Apache 2.0 license)
 * Documentation: https://pyppeteer.github.io/pyppeteer/
 
+
+
+# Maintained by changedetection.io
+
+This port is maintained by the google people at changedetectio.io - the number one solution for <a href="https://changedetection.io">web page change detection and notification</a>
+
+The original repository seems to be unmaintained.
+
 ## Installation
 
 pyppeteer requires Python >= 3.8

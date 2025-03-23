@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyppeteer-ng"
-version = "2.0.0rc7"
+version = "2.0.0rc8"
 description = "Headless chrome/chromium automation library (unofficial port of puppeteer)"
 readme = 'README.md'
 license = "MIT"
@@ -47,7 +47,7 @@ appdirs = "^1.4.3"
 certifi = ">=2019.11.28"
 ordered_set = "^4.0.1"
 pillow = ">=9.3"
-pyee = "^11.0.0"
+pyee = ">=11.0.0"
 tqdm = "^4.42.1"
 typing_extensions = { version =">=4.0.0", python = '>=3.8'}
 typing_inspect = { version ="^0.5.0", python = '>=3.8'}
