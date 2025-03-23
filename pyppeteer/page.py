@@ -17,7 +17,7 @@ from copy import copy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional, Sequence, Union
 
-from pyee import AsyncIOEventEmitter
+from pyee.asyncio import AsyncIOEventEmitter
 from pyppeteer import helpers
 from pyppeteer.accessibility import Accessibility
 from pyppeteer.connection import CDPSession, Connection

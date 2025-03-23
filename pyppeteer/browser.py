@@ -8,7 +8,7 @@ from asyncio import Future
 from subprocess import Popen
 from typing import TYPE_CHECKING, Awaitable, Callable, Dict, List, Optional, Sequence
 
-from pyee import AsyncIOEventEmitter
+from pyee.asyncio import AsyncIOEventEmitter
 from pyppeteer.connection import Connection
 from pyppeteer.errors import BrowserError
 from pyppeteer.events import Events

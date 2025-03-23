@@ -6,7 +6,7 @@
 import asyncio
 from typing import Awaitable, Dict, Union
 
-from pyee import AsyncIOEventEmitter
+from pyee.asyncio import AsyncIOEventEmitter
 
 from pyppeteer.connection import Connection, Message, createProtocolError, rewriteError
 from pyppeteer.errors import NetworkError

@@ -10,7 +10,7 @@ import logging
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Awaitable, Dict, List, Optional, Set, Union
 
-from pyee import AsyncIOEventEmitter
+from pyee.asyncio import AsyncIOEventEmitter
 from pyppeteer.connection import CDPSession
 from pyppeteer.errors import NetworkError
 from pyppeteer.events import Events

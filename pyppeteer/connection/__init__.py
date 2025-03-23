@@ -5,7 +5,7 @@ import sys
 from typing import Any, Awaitable, Dict
 
 import websockets
-from pyee import AsyncIOEventEmitter
+from pyee.asyncio import AsyncIOEventEmitter
 
 from pyppeteer.errors import NetworkError
 from pyppeteer.events import Events

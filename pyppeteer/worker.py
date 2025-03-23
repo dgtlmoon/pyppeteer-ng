@@ -6,7 +6,7 @@
 import logging
 from typing import TYPE_CHECKING, Any, Callable, Dict, List
 
-from pyee import AsyncIOEventEmitter
+from pyee.asyncio import AsyncIOEventEmitter
 from pyppeteer.execution_context import ExecutionContext
 from pyppeteer.jshandle import JSHandle
 from pyppeteer.models import JSFunctionArg
