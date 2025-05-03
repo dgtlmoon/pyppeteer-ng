@@ -16,7 +16,6 @@ import os
 import shutil
 import struct
 import sys
-from distutils.util import strtobool
 from io import BytesIO
 from pathlib import Path
 from typing import Any, List, Optional, Sequence, Tuple, Union, cast
@@ -29,6 +28,7 @@ from tqdm import tqdm
 
 from pyppeteer import __chromium_revision__, __pyppeteer_home__
 from pyppeteer.models import Platform, RevisionInfo
+from pyppeteer.strtobool import strtobool
 
 if sys.version_info < (3, 8):
     from typing_inspect import get_args
