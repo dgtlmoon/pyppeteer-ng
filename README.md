@@ -29,13 +29,13 @@ pyppeteer requires Python >= 3.8
 Install with `pip` from PyPI:
 
 ```
-pip install pyppeteer
+pip install pyppeteer-ng
 ```
 
 Or install the latest version from [this github repo](https://github.com/pyppeteer/pyppeteer/):
 
 ```
-pip install -U git+https://github.com/pyppeteer/pyppeteer@dev
+pip install -U git+https://github.com/dgtlmoon/pyppeteer-ng@dev
 ```
 
 ## Usage
