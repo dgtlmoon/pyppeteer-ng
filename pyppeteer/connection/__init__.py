@@ -165,7 +165,7 @@ class Connection(AsyncIOEventEmitter):
             remove_none_items_inplace(msg)
             msg_to_send = json.dumps(msg)
             await self.connection.send(msg_to_send)
-            logger_connection.debug(f'SEND ▶ {msg_to_send}')
+            logger_connection.debug('SEND ▶ %s', msg_to_send)
         except (websockets.ConnectionClosed, ConnectionResetError) as e:
             logger.error(f'Connection unexpectedly closed during send: {e}')
             # Mark as disconnected immediately to stop other operations
@@ -213,7 +213,7 @@ class Connection(AsyncIOEventEmitter):
             loaded_msg: Message = json.loads(msg)
             if self._delay:
                 await asyncio.sleep(self._delay)
-            logger_connection.debug(f'◀ RECV {loaded_msg}')
+            logger_connection.debug('◀ RECV %s', loaded_msg)
     
             # Handle Target attach/detach methods
             if loaded_msg.get('method') == 'Target.attachedToTarget':
