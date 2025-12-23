@@ -63,6 +63,7 @@ class TestDebugError(unittest.TestCase):
     def tearDown(self):
         pyppeteer.DEBUG = self._old_debug
 
+    @pytest.mark.skip(reason="debugError function was removed in commit fd4909a")
     def test_debug_default(self):
         with self.assertLogs('pyppeteer.test', logging.DEBUG):
             debugError(self.logger, 'test')
@@ -70,11 +71,13 @@ class TestDebugError(unittest.TestCase):
             with self.assertLogs('pyppeteer', logging.INFO):
                 debugError(self.logger, 'test')
 
+    @pytest.mark.skip(reason="debugError function was removed in commit fd4909a")
     def test_debug_enabled(self):
         pyppeteer.DEBUG = True
         with self.assertLogs('pyppeteer.test', logging.ERROR):
             debugError(self.logger, 'test')
 
+    @pytest.mark.skip(reason="debugError function was removed in commit fd4909a")
     def test_debug_enable_disable(self):
         pyppeteer.DEBUG = True
         with self.assertLogs('pyppeteer.test', logging.ERROR):
@@ -86,6 +89,7 @@ class TestDebugError(unittest.TestCase):
             with self.assertLogs('pyppeteer.test', logging.INFO):
                 debugError(self.logger, 'test')
 
+    @pytest.mark.skip(reason="debugError function was removed in commit fd4909a")
     def test_debug_logger(self):
         with pytest.raises(AssertionError):
             with self.assertLogs('pyppeteer', logging.DEBUG):

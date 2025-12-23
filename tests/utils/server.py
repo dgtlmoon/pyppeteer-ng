@@ -112,10 +112,15 @@ class WrappedApplication(web.Application):
 
     def one_time_request_delay(self, path: str, delay: float = 0):
         """Delay a request to the given path by the specified number of seconds."""
+        fut = self.loop.create_future()
+
         async def holder():
-            await asyncio.sleep(delay)
+            if delay > 0:
+                await asyncio.sleep(delay)
+            await fut
 
         self.add_pre_request_subscriber(path, holder, should_return=False)
+        return fut
 
     def add_one_time_header_for_request(self, path: str, headers: Dict):
         """Add custom headers for a one-time request to the given path."""

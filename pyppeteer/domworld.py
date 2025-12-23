@@ -188,15 +188,13 @@ class DOMWorld:
         }
         """
         addScriptContent = """
-        async function addScriptContent(content, type = 'text/javascript') {
+        function addScriptContent(content, type = 'text/javascript') {
           const script = document.createElement('script');
           script.type = type;
           script.text = content;
           let error = null;
           script.onerror = e => error = e;
           document.head.appendChild(script);
-          // Wait a microtask to ensure script has executed
-          await Promise.resolve();
           if (error)
             throw error;
           return script;
@@ -216,10 +214,16 @@ class DOMWorld:
                 raise ValueError(f'The specified path, {path.name}, is not a file')
             contents = await readFileAsync(path, 'utf8')
             contents += '//# sourceURL=' + path.name
-            f = await context.evaluateHandle(addScriptContent, contents, type_)
+            if type_:
+                f = await context.evaluateHandle(addScriptContent, contents, type_)
+            else:
+                f = await context.evaluateHandle(addScriptContent, contents)
             return f.asElement()
         if content:
-            f = await context.evaluateHandle(addScriptContent, content, type_)
+            if type_:
+                f = await context.evaluateHandle(addScriptContent, content, type_)
+            else:
+                f = await context.evaluateHandle(addScriptContent, content)
             return f.asElement()
         raise BrowserError('provide a url, path or content argument')
 

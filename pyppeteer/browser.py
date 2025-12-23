@@ -281,6 +281,14 @@ class Browser(AsyncIOEventEmitter):
             if not target._isInitialized:
                 target._initializedCallback(False)
 
+    async def __aenter__(self) -> 'Browser':
+        """Async context manager entry."""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Async context manager exit - ensures browser is closed."""
+        await self.close()
+
     @property
     def isConnected(self) -> bool:
         return not self._connection._closed

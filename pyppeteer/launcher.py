@@ -122,6 +122,7 @@ class BrowserRunner:
                 except Exception as e:
                     logger.error(f'An exception occurred: {e}')
                     self.kill()
+            self._closed = True  # Mark as closed before calling _close_proc to avoid double-close
         return await self._close_proc()
 
     def kill(self) -> None:

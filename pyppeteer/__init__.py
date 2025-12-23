@@ -24,7 +24,8 @@ from pyppeteer.websocket_transport import WebsocketTransport  # isort:skip
 
 # Setup root logger
 _logger = logging.getLogger(__name__)
-_logger.setLevel(logging.DEBUG)
+# Don't set a default level - let it inherit WARNING from root logger
+# Users can set the level explicitly via the logLevel parameter in launch()/connect()
 
 
 class Pyppeteer:
