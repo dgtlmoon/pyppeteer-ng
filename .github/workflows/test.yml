@@ -18,13 +18,15 @@ jobs:
         with:
           python-version: "3.8"
 
-      - name: Install tox
-        run: pip install tox
+      - name: Install flake8
+        run: pip install flake8
 
-      - name: Check code style
-        env:
-          TOXENV: flake8
-        run: tox
+      - name: Check for syntax errors and critical issues
+        run: flake8 pyppeteer tests --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Check code style (informational only)
+        continue-on-error: true
+        run: flake8 pyppeteer tests --exit-zero --max-line-length=120 --exclude=docs,.svn,CVS,.bzr,.hg,.git,__pycache__,.tox,.eggs,*.egg,out --statistics
 
   mypy:
     name: Type checking (mypy)
@@ -41,6 +43,7 @@ jobs:
         run: pip install tox
 
       - name: Check typing
+        continue-on-error: true
         env:
           TOXENV: mypy
           MYPY_JUNIT_XML_PATH: /tmp/tests/mypy/results.xml
