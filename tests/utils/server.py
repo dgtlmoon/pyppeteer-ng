@@ -229,8 +229,8 @@ async def app_runner(assets_path, free_port_0, free_port_1):
     ssl_ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
     cert_dir = Path(__file__).parent
     ssl_ctx.load_cert_chain(certfile=cert_dir / 'cert.pem', keyfile=cert_dir / 'private.key')
-    http_site = web.TCPSite(runner, port=free_port_0, reuse_address=True)
-    https_site = web.TCPSite(runner, port=free_port_1, ssl_context=ssl_ctx, reuse_address=True)
+    http_site = web.TCPSite(runner, host='127.0.0.1', port=free_port_0, reuse_address=True)
+    https_site = web.TCPSite(runner, host='127.0.0.1', port=free_port_1, ssl_context=ssl_ctx, reuse_address=True)
     await asyncio.gather(http_site.start(), https_site.start())
     return app
 
