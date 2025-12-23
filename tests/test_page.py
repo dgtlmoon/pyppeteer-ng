@@ -403,7 +403,7 @@ class TestExposeFunction:
             raise Exception('WOOF WOOF')
 
         await isolated_page.exposeFunction('woof', raise_me)
-        message, stack = await isolated_page.evaluate(
+        result = await isolated_page.evaluate(
             """async() => {
             try {
                 await woof();
@@ -413,8 +413,8 @@ class TestExposeFunction:
         }
         """
         )
-        assert message == 'WOOF WOOF'
-        assert __file__ in stack
+        assert result['message'] == 'WOOF WOOF'
+        assert __file__ in result['stack']
 
     @sync
     async def test_callable_within_evaluateOnNewDocument(self, isolated_page):
@@ -526,7 +526,7 @@ class TestSetContent:
     async def test_respects_timeout(self, isolated_page, server):
         img_path = server / 'img.png'
         # stall image response by 1s, causing the setContent to timeout
-        server.app.add_one_time_request_delay('/img.png', 1)
+        server.app.one_time_request_delay('/img.png', 1)
         with pytest.raises(TimeoutError):
             # note: timeout in ms
             await isolated_page.setContent(f'<img src="{img_path}"/>', timeout=1)
@@ -535,7 +535,7 @@ class TestSetContent:
     async def test_respects_default_timeout(self, isolated_page, server):
         img_path = server / 'img.png'
         # stall image response by 1s, causing the setContent to timeout
-        server.app.add_one_time_request_delay('/img.png', 1)
+        server.app.one_time_request_delay('/img.png', 1)
         # note: timeout in ms
         isolated_page.setDefaultNavigationTimeout(1)
         with pytest.raises(TimeoutError):
@@ -1106,7 +1106,7 @@ class TestEvents:
     @sync
     async def test_load_event_fired(self, isolated_page):
         event = waitEvent(isolated_page, 'load')
-        done, _ = await asyncio.wait((isolated_page.goto('about:blank'), event), timeout=5)
+        done, _ = await asyncio.wait({asyncio.create_task(isolated_page.goto('about:blank')), event}, timeout=5)
         assert len(done) == 2
 
     @sync

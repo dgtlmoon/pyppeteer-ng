@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 
 from aiohttp import web
 from aiohttp.log import web_logger
-from aiohttp.web_app import _Middleware
+from aiohttp.typedefs import Middleware
 from aiohttp.web_exceptions import HTTPNotFound
 from aiohttp.web_urldispatcher import UrlDispatcher
 
@@ -23,7 +23,7 @@ class WrappedApplication(web.Application):
         *,
         logger: logging.Logger = web_logger,
         router: Optional[UrlDispatcher] = None,
-        middlewares: Iterable[_Middleware] = (),
+        middlewares: Iterable[Middleware] = (),
         handler_args: Mapping[str, Any] = None,
         client_max_size: int = 1024 ** 2,
         loop: Optional[asyncio.AbstractEventLoop] = None,
@@ -127,6 +127,14 @@ class WrappedApplication(web.Application):
 
         self.add_pre_request_subscriber(path, resolve_fut, should_return=False)
         return fut
+
+
+def get_application():
+    """
+    Returns a WrappedApplication instance for backward compatibility.
+    Note: This uses aiohttp, not Tornado. Tests expecting Tornado API will need updates.
+    """
+    return WrappedApplication()
 
 
 def create_request_content_cache_fn(content):

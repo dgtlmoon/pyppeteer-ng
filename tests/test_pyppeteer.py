@@ -69,7 +69,7 @@ class TestScreenshot:
         await page.setViewport(
             {'width': 2000, 'height': 2000,}
         )
-        await page.goto(self.url + 'assets/huge-page.html')
+        await page.goto(self.url + 'huge-page.html')
         options = {'path': str(self.target_path)}
         assert not self.target_path.exists()
         await asyncio.wait_for(page.screenshot(options), 30)

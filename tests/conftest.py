@@ -161,6 +161,7 @@ def isolated_page(isolated_context) -> Page:
 def server(assets):
     port_0 = get_free_port()
     port_1 = get_free_port()
+    # Serve from tests/assets/ directory as the root
     app = sync(app_runner(assets, port_0, port_1))
     yield ServerURL(port_0, port_1, app)
     sync(app.shutdown())
@@ -179,3 +180,28 @@ def event_loop():
 
 chrome_only = pytest.mark.skipif(_firefox, reason='Test fails under firefox, or is not implemented for it')
 needs_server_side_implementation = pytest.mark.skip(reason='Needs server side implementation')
+
+
+@pytest.fixture(autouse=True)
+def inject_fixtures(request):
+    """
+    Automatically inject page and url fixtures into test class instances.
+    This provides backward compatibility for legacy test classes that expect self.page and self.url.
+    Only injects if the test class actually uses these attributes.
+    """
+    if not request.instance:
+        # Not a test method in a class, skip
+        return
+
+    # Check if this test class uses the old pattern (has tests that reference self.page or self.url)
+    # by checking if the test function is defined in a class that we know needs fixtures
+    test_class_name = request.instance.__class__.__name__
+    needs_fixtures = test_class_name in ['TestClick', 'TestFileUpload', 'TestType', 'TestConnection',
+                                          'TestCDPSession', 'TestPyppeteer', 'TestTarget']
+
+    if needs_fixtures:
+        # Lazy-load fixtures only when needed
+        isolated_page = request.getfixturevalue('isolated_page')
+        server = request.getfixturevalue('server')
+        request.instance.page = isolated_page
+        request.instance.url = server.base + '/'

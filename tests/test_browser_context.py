@@ -67,6 +67,7 @@ async def test_fire_target_event(server, shared_browser):
         f'CHANGED: {server.empty_page}',
         f'DESTROYED: {server.empty_page}',
     ]
+    await context.close()
 
 
 @sync
