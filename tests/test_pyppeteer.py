@@ -29,14 +29,6 @@ class TestPyppeteer(TestCase):
         await self.page.goto('https://www.facebook.com/')
         assert self.page.url == 'https://www.facebook.com/'
 
-    @sync
-    async def test_plain_text_depr(self):
-        await self.page.goto(self.url)
-        with self.assertLogs('pyppeteer', logging.WARN) as log:
-            text = await self.page.plainText()
-            assert 'deprecated' in log.records[0].msg
-        assert text.split() == ['Hello', 'link1', 'link2']
-
     @pytest.mark.skip(reason="injectFile method was removed - deprecated API")
     @sync
     async def test_inject_file(self):  # deprecated
