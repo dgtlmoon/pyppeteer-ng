@@ -13,6 +13,8 @@ import logging
 from pathlib import Path
 from unittest import TestCase
 
+import pytest
+
 from syncer import sync
 
 
@@ -35,6 +37,7 @@ class TestPyppeteer(TestCase):
             assert 'deprecated' in log.records[0].msg
         assert text.split() == ['Hello', 'link1', 'link2']
 
+    @pytest.mark.skip(reason="injectFile method was removed - deprecated API")
     @sync
     async def test_inject_file(self):  # deprecated
         tmp_file = Path('tmp.js')

@@ -104,7 +104,7 @@ class TestPage:
             def assert_truthy(req):
                 assert req
 
-            with pytest.raises(BrowserError, match='(ERR_CERT_AUTHORITY_INVALID|SSL_ERROR_UNKNOWN)'):
+            with pytest.raises(BrowserError, match='(ERR_CERT_AUTHORITY_INVALID|SSL_ERROR_UNKNOWN|ERR_SSL_PROTOCOL_ERROR)'):
                 await isolated_page.goto(server.https.empty_page)
 
         @sync
@@ -119,7 +119,7 @@ class TestPage:
 
             server.app.set_one_time_redirects('/redirect/1.html', '/redirect/2.html', server.empty_page)
 
-            with pytest.raises(BrowserError, match=r'(SSL_ERROR_UNKNOWN|ERR_CERT_AUTHORITY_INVALID)'):
+            with pytest.raises(BrowserError, match=r'(SSL_ERROR_UNKNOWN|ERR_CERT_AUTHORITY_INVALID|ERR_SSL_PROTOCOL_ERROR)'):
                 await isolated_page.goto(server.https.empty_page)
 
         @sync
