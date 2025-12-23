@@ -197,11 +197,17 @@ def inject_fixtures(request):
     # by checking if the test function is defined in a class that we know needs fixtures
     test_class_name = request.instance.__class__.__name__
     needs_fixtures = test_class_name in ['TestClick', 'TestFileUpload', 'TestType', 'TestConnection',
-                                          'TestCDPSession', 'TestPyppeteer', 'TestTarget']
+                                          'TestCDPSession', 'TestPyppeteer', 'TestTarget', 'TestScreenshot',
+                                          'TestQueryObject', 'TestJSHandle']
 
     if needs_fixtures:
         # Lazy-load fixtures only when needed
         isolated_page = request.getfixturevalue('isolated_page')
+        isolated_context = request.getfixturevalue('isolated_context')
+        shared_browser = request.getfixturevalue('shared_browser')
         server = request.getfixturevalue('server')
         request.instance.page = isolated_page
         request.instance.url = server.base + '/'
+        request.instance.context = isolated_context
+        request.instance.browser = shared_browser
+        request.instance.port = server.port

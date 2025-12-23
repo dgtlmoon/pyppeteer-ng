@@ -36,7 +36,7 @@ class Pyppeteer:
 
     @property
     def executablePath(self) -> Union[str, Path]:
-        return self._launcher.executablePath
+        return self._launcher.executable_path
 
     @property
     def product(self) -> str:
@@ -59,6 +59,7 @@ class Pyppeteer:
         ignoreHTTPSErrors: bool = False,
         slowMo: float = 0,
         defaultViewport: Protocol.Page.Viewport = None,
+        logLevel: int = None,
     ) -> Browser:
         return await self._launcher.connect(
             browserWSEndpoint=browserWSEndpoint,
@@ -67,6 +68,7 @@ class Pyppeteer:
             transport=transport,
             slowMo=slowMo,
             defaultViewport=defaultViewport,
+            logLevel=logLevel,
         )
 
     @property
@@ -109,6 +111,7 @@ async def connect(
     ignoreHTTPSErrors: bool = False,
     slowMo: float = 0,
     defaultViewport: Protocol.Page.Viewport = None,
+    logLevel: int = None,
 ) -> Browser:
     return await Pyppeteer(projectRoot, preferredRevision).connect(
         browserWSEndpoint=browserWSEndpoint,
@@ -117,15 +120,40 @@ async def connect(
         ignoreHTTPSErrors=ignoreHTTPSErrors,
         slowMo=slowMo,
         defaultViewport=defaultViewport,
+        logLevel=logLevel,
     )
 
 
 version = __version__
+# Parse version_info, handling suffixes like rc4
+import re
+_version_parts = [re.match(r'^\d+', part).group() if re.match(r'^\d+', part) else '0'
+                 for part in __version__.split('.')[:3]]
+version_info = tuple(int(x) for x in _version_parts)
+DEBUG = False  # Debug flag for backwards compatibility
+
+
+def defaultArgs(options=None, **kwargs):
+    """Get default Chrome arguments."""
+    # Handle both dict and keyword arguments for backwards compatibility
+    if options and isinstance(options, dict):
+        kwargs.update(options)
+    return Pyppeteer()._launcher.default_args(**kwargs)
+
+
+def executablePath():
+    """Get Chrome executable path."""
+    return Pyppeteer().executablePath
+
 
 __all__ = [
     '__chromium_revision__',
     '__pyppeteer_home__',
     'version',
+    'version_info',
+    'DEBUG',
+    'defaultArgs',
+    'executablePath',
     'devices',
     'launch',
     'connect',

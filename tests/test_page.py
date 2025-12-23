@@ -53,9 +53,9 @@ class TestClose:
 
     @sync
     async def test_closed_page_removed_from_pages_prop(self, isolated_page, shared_browser):
-        assert isolated_page in await shared_browser.pages
+        assert isolated_page in await shared_browser.pages()
         await isolated_page.close()
-        assert isolated_page not in await shared_browser.pages
+        assert isolated_page not in await shared_browser.pages()
 
     @sync
     async def test_run_beforeunload(self, isolated_page, server, firefox, event_loop):

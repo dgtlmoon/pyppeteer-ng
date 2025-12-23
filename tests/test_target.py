@@ -7,7 +7,7 @@ import unittest
 from syncer import sync
 
 
-class TestTarget:
+class TestTarget(unittest.TestCase):
     @sync
     async def test_targets(self):
         targets = self.browser.targets()
@@ -18,7 +18,7 @@ class TestTarget:
 
     @sync
     async def test_return_all_pages(self):
-        pages = await self.context.pages
+        pages = await self.context.pages()
         self.assertEqual(len(pages), 1)
         self.assertIn(self.page, pages)
 
@@ -30,7 +30,7 @@ class TestTarget:
 
     @sync
     async def test_default_page(self):
-        pages = await self.browser.pages
+        pages = await self.browser.pages()
         page = [page for page in pages if page != self.page][0]
         self.assertEqual(await page.evaluate('["Hello", "world"].join(" ")'), 'Hello world')
         self.assertTrue(await page.J('body'))

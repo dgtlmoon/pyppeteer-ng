@@ -242,7 +242,6 @@ class Browser(AsyncIOEventEmitter):
         self.remove_listener(Events.Browser.TargetChanged, check)
         return result
 
-    @property
     async def pages(self) -> List['Page']:
         """Get all pages of this browser.
 

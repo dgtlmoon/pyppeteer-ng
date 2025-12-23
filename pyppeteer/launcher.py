@@ -185,7 +185,12 @@ class BaseBrowserLauncher:
         ignoreHTTPSErrors: bool = False,
         slowMo: float = 0,
         defaultViewport: Protocol.Page.Viewport = None,
+        logLevel: int = None,
     ) -> Browser:
+        # Set log level if specified
+        if logLevel is not None:
+            logging.getLogger('pyppeteer').setLevel(logLevel)
+
         if defaultViewport is None:
             defaultViewport = {'width': 800, 'height': 600}
 
@@ -243,10 +248,71 @@ class ChromeLauncher(BaseBrowserLauncher):
     ]
     product = 'chrome'
 
-    def __init__(self, projectRoot: str = None, preferredRevision: str = None):
+    def __init__(
+        self,
+        options: dict = None,
+        projectRoot: str = None,
+        preferredRevision: str = None,
+        ignoreDefaultArgs: Union[bool, List[str]] = False,
+        **kwargs
+    ):
         if not preferredRevision:
             preferredRevision = __chromium_revision__
         super().__init__(projectRoot, preferredRevision)
+
+        # Merge options dict with kwargs for backward compatibility
+        if options:
+            if isinstance(options, dict):
+                kwargs.update(options)
+
+        # Process options to set up launcher configuration
+        self._options = kwargs
+        self._ignoreDefaultArgs = kwargs.get('ignoreDefaultArgs', ignoreDefaultArgs)
+        self._args = kwargs.get('args', [])
+        self._executablePath = kwargs.get('executablePath', None)
+        self._headless = kwargs.get('headless', True)
+        self._userDataDir = kwargs.get('userDataDir', None)
+
+        # Set up chrome arguments
+        chrome_args = []
+        if not self._ignoreDefaultArgs:
+            chrome_args.extend(self.default_args(**kwargs))
+        elif isinstance(self._ignoreDefaultArgs, list):
+            chrome_args.extend([x for x in self.default_args(**kwargs) if x not in self._ignoreDefaultArgs])
+        else:
+            chrome_args.extend(self._args)
+
+        # Add user-provided args
+        if self._args and not self._ignoreDefaultArgs:
+            chrome_args.extend(self._args)
+
+        # Handle user data dir
+        if self._userDataDir:
+            chrome_args.append(f'--user-data-dir={self._userDataDir}')
+            self.temporaryUserDataDir = None
+        elif not any(x.startswith('--user-data-dir') for x in chrome_args):
+            self.temporaryUserDataDir = tempfile.TemporaryDirectory(prefix='pyppeteer_chrome_profile_')
+            chrome_args.append(f'--user-data-dir={self.temporaryUserDataDir.name}')
+        else:
+            self.temporaryUserDataDir = None
+
+        self.chromeArguments = chrome_args
+
+        # Set chrome executable
+        if self._executablePath:
+            self.chromeExecutable = str(self._executablePath)
+        else:
+            chrome_executable, missing_text = resolveExecutablePath(self.projectRoot, self.preferredRevision)
+            if missing_text:
+                # Don't raise during init, just store for later
+                self.chromeExecutable = None
+                self._missing_text = missing_text
+            else:
+                self.chromeExecutable = str(chrome_executable)
+                self._missing_text = None
+
+        # Build command for inspection
+        self.cmd = [self.chromeExecutable] + self.chromeArguments if self.chromeExecutable else []
 
     @property
     def executable_path(self) -> Optional[str]:
@@ -265,7 +331,12 @@ class ChromeLauncher(BaseBrowserLauncher):
         defaultViewport = kwargs.get('defaultViewport', {'width': 800, 'height': 600})
         slowMo = kwargs.get('slowMo', 0)
         timeout = kwargs.get('timeout', 30_000)
+        logLevel = kwargs.get('logLevel', None)
         profile_path = None
+
+        # Set log level if specified
+        if logLevel is not None:
+            logging.getLogger('pyppeteer').setLevel(logLevel)
 
         chrome_args = []
         if not ignoreDefaultArgs:
@@ -629,7 +700,9 @@ def waitForWSEndpoint(proc: subprocess.Popen, timeout: Optional[float], preferre
             )
         potential_match = re.match(r'DevTools listening on (ws://[\w.:/-]*)+', line)
         if potential_match:
-            return potential_match.group(1)
+            endpoint = potential_match.group(1)
+            logger.info(f'DevTools listening on {endpoint}')
+            return endpoint
     raise RuntimeError(
         buffer + '\nProcess ended before WebSockets endpoint could be found.'
         f'Only Chrome at revision {preferredRevision} is guaranteed to work.'

@@ -11,11 +11,12 @@ Tests for `pyppeteer` module.
 import asyncio
 import logging
 from pathlib import Path
+from unittest import TestCase
 
 from syncer import sync
 
 
-class TestPyppeteer:
+class TestPyppeteer(TestCase):
     @sync
     async def test_get_https(self):
         await self.page.goto('https://example.com/')
@@ -51,7 +52,7 @@ class TestPyppeteer:
         tmp_file.unlink()
 
 
-class TestScreenshot:
+class TestScreenshot(TestCase):
     def setUp(self):
         super().setUp()
         self.target_path = Path(__file__).resolve().parent / 'test.png'
@@ -72,7 +73,7 @@ class TestScreenshot:
         await page.goto(self.url + 'huge-page.html')
         options = {'path': str(self.target_path)}
         assert not self.target_path.exists()
-        await asyncio.wait_for(page.screenshot(options), 30)
+        await asyncio.wait_for(page.screenshot(**options), 30)
         assert self.target_path.exists()
         with self.target_path.open('rb') as fh:
             bytes = fh.read()

@@ -9,6 +9,7 @@ import pytest
 from syncer import sync
 
 from pyppeteer import launch
+from pyppeteer.chromium_downloader import current_platform
 from pyppeteer.errors import NetworkError
 
 

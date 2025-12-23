@@ -110,14 +110,19 @@ class WrappedApplication(web.Application):
 
         self.add_pre_request_subscriber(path, responder, should_return=True)
 
-    def one_time_request_delay(self, path: str):
-        fut = asyncio.get_event_loop().create_future()
-
+    def one_time_request_delay(self, path: str, delay: float = 0):
+        """Delay a request to the given path by the specified number of seconds."""
         async def holder():
-            await fut
+            await asyncio.sleep(delay)
 
         self.add_pre_request_subscriber(path, holder, should_return=False)
-        return fut
+
+    def add_one_time_header_for_request(self, path: str, headers: Dict):
+        """Add custom headers for a one-time request to the given path."""
+        from urllib.parse import urlparse
+        # Extract just the path from the URL if a full URL is provided
+        parsed_path = urlparse(path).path.strip('/')
+        self.headers[parsed_path] = headers
 
     def waitForRequest(self, path: str):
         fut = asyncio.get_event_loop().create_future()
@@ -127,6 +132,36 @@ class WrappedApplication(web.Application):
 
         self.add_pre_request_subscriber(path, resolve_fut, should_return=False)
         return fut
+
+    def listen(self, port: int):
+        """
+        Start the aiohttp server on the specified port.
+        This provides backward compatibility with Tornado's listen() API.
+
+        Returns a server handle that can be used to stop the server.
+        """
+        loop = asyncio.get_event_loop()
+
+        # Create and setup runner
+        runner = web.AppRunner(self)
+        loop.run_until_complete(runner.setup())
+
+        # Create and start site
+        site = web.TCPSite(runner, 'localhost', port, reuse_address=True)
+        loop.run_until_complete(site.start())
+
+        # Return an object with stop() method for compatibility
+        class ServerHandle:
+            def __init__(self, runner, site):
+                self._runner = runner
+                self._site = site
+
+            def stop(self):
+                loop = asyncio.get_event_loop()
+                loop.run_until_complete(self._site.stop())
+                loop.run_until_complete(self._runner.cleanup())
+
+        return ServerHandle(runner, site)
 
 
 def get_application():

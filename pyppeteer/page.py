@@ -665,7 +665,7 @@ class Page(AsyncIOEventEmitter):
         values: List[JSHandle] = []
         for arg in event.get('args', []):
             values.append(createJSHandle(context, arg))
-        self._addConsoleMessage(event['type'], values, event['stackTrace'])
+        self._addConsoleMessage(event['type'], values, event.get('stackTrace'))
 
     async def _onBindingCalled(self, event: Dict) -> None:
         obj = json.loads(event['payload'])
