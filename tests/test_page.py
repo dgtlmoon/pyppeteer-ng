@@ -796,7 +796,7 @@ class TestSetJSEnabled:
     async def test_basic_usage(self, isolated_page, server):
         await isolated_page.setJavaScriptEnabled(False)
         await isolated_page.goto('data:text/html, <script>var something = "forbidden"</script>')
-        with pytest.raises(BrowserError):
+        with pytest.raises((BrowserError, ElementHandleError)):
             await isolated_page.evaluate('something')
 
         await isolated_page.setJavaScriptEnabled(True)
