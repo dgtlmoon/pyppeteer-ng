@@ -1610,7 +1610,7 @@ class Page(AsyncIOEventEmitter):
 
     async def waitForFunction(
         self, pageFunction: str, *args: JSFunctionArg, polling: str = 'raf', timeout: Optional[float] = None,
-    ) -> Awaitable[JSHandle]:
+    ) -> JSHandle:
         """Wait until the function completes and returns a truthy value.
 
         :arg Any args: Arguments to pass to ``pageFunction``.
@@ -1635,7 +1635,7 @@ class Page(AsyncIOEventEmitter):
         * ``timeout`` (int|float): maximum time to wait for in milliseconds.
           Defaults to 30000 (30 seconds). Pass ``0`` to disable timeout.
         """
-        return self.mainFrame.waitForFunction(pageFunction, *args, polling=polling, timeout=timeout, *args)
+        return await self.mainFrame.waitForFunction(pageFunction, *args, polling=polling, timeout=timeout)
 
 
 supportedMetrics = (
