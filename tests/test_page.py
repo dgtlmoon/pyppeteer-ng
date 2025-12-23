@@ -762,7 +762,7 @@ class TestAddStyleTag:
     @sync
     async def test_includes_sourcemap_when_path_provided(self, isolated_page, server, assets):
         await isolated_page.goto(server.empty_page)
-        await isolated_page.addScriptTag(path=assets / 'injectedstyle.css')
+        await isolated_page.addStyleTag(path=assets / 'injectedstyle.css')
         style_handle = await isolated_page.J('style')
         res = await isolated_page.evaluate('style => style.innerHTML', style_handle)
         assert (assets / 'injectedstyle.css').name in res

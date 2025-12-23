@@ -47,7 +47,7 @@ class TestTarget(unittest.TestCase):
         self.assertEqual(await otherPage.evaluate('["Hello", "world"].join(" ")'), 'Hello world')
         self.assertTrue(await otherPage.J('body'))
 
-        pages = await self.context.pages
+        pages = await self.context.pages()
         self.assertIn(self.page, pages)
         self.assertIn(otherPage, pages)
 
@@ -61,7 +61,7 @@ class TestTarget(unittest.TestCase):
         await otherPage.close()
         self.assertEqual(await closePagePromise, otherPage)
 
-        pages = await self.context.pages
+        pages = await self.context.pages()
         self.assertIn(self.page, pages)
         self.assertNotIn(otherPage, pages)
 
@@ -116,7 +116,8 @@ class TestTarget(unittest.TestCase):
         newPage = await newPagePromise
         targetPromise2 = asyncio.get_event_loop().create_future()
         self.context.once('targetcreated', lambda t: targetPromise2.set_result(t))
-        evaluatePromise = asyncio.ensure_future(newPage.evaluate('window.open("about:blank")'))
+        # Wrap window.open in void to avoid "Object reference chain is too long" error
+        evaluatePromise = asyncio.ensure_future(newPage.evaluate('() => { window.open("about:blank"); }'))
         target2 = await targetPromise2
         self.assertEqual(target2.url, 'about:blank')
         await evaluatePromise

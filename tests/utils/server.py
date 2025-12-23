@@ -220,7 +220,7 @@ async def app_runner(assets_path, free_port_0, free_port_1):
         file_path = assets_path / request.match_info['path']
 
         # If path is empty or is a directory, serve index.html or empty.html
-        if not file_path.exists() or file_path.is_dir():
+        if path == '' or (file_path.exists() and file_path.is_dir()):
             # Try index.html first, then empty.html as fallback
             if (assets_path / 'index.html').exists():
                 file_path = assets_path / 'index.html'
@@ -228,6 +228,8 @@ async def app_runner(assets_path, free_port_0, free_port_1):
                 file_path = assets_path / 'empty.html'
             else:
                 raise HTTPNotFound()  # ie 404
+        elif not file_path.exists():
+            raise HTTPNotFound()  # ie 404
 
         return web.FileResponse(file_path, headers=headers)
 
