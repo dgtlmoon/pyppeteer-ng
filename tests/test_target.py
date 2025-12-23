@@ -39,7 +39,8 @@ class TestTarget(unittest.TestCase):
     async def test_report_new_page(self):
         otherPagePromise = asyncio.get_event_loop().create_future()
         self.context.once('targetcreated', lambda target: otherPagePromise.set_result(target))
-        await self.page.evaluate('url => window.open(url)', 'http://127.0.0.1:{}'.format(self.port))
+        # Wrap window.open in void to avoid "Object reference chain is too long" error
+        await self.page.evaluate('url => { window.open(url); }', 'http://127.0.0.1:{}'.format(self.port))
         otherPage = await (await otherPagePromise).page()
 
         self.assertIn('127.0.0.1', otherPage.url)
