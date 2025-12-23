@@ -12,12 +12,17 @@ class WebsocketTransport:
         self.onmessage: Optional[Callable[[str], Any]] = None
         self.onclose: Optional[Callable[[], Any]] = None
         self.ws = ws
-        self.loop = loop or asyncio.get_event_loop()
+        # Use get_running_loop() if available, otherwise try get_event_loop()
+        try:
+            self.loop = loop or asyncio.get_running_loop()
+        except RuntimeError:
+            # No running loop, create a new one (for backwards compatibility)
+            self.loop = loop or asyncio.get_event_loop()
         self._closed = False
-        
+
         # Track socket state
         self._socket_open = True
-        
+
         # Setup socket state monitoring
         self.ws.connection_lost_waiter.add_done_callback(self._handle_connection_lost)
 
@@ -30,7 +35,7 @@ class WebsocketTransport:
             # waiting on websockets to release new version where ping_interval is typed correctly
             ping_interval=None,  # type: ignore
             max_size=256 * 1024 * 1024,  # 256Mb
-            loop=loop,
+            # Note: 'loop' parameter was removed in websockets 10.0
             close_timeout=5,
             # todo check if speed is affected
             # note: seems to work w/ compression
