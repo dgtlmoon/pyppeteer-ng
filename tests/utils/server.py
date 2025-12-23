@@ -112,7 +112,7 @@ class WrappedApplication(web.Application):
 
     def one_time_request_delay(self, path: str, delay: float = 0):
         """Delay a request to the given path by the specified number of seconds."""
-        fut = self.loop.create_future()
+        fut = asyncio.get_event_loop().create_future()
 
         async def holder():
             if delay > 0:
