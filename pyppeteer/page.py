@@ -1176,7 +1176,7 @@ class Page(AsyncIOEventEmitter):
             if clip['height'] == 0:
                 raise ValueError('screenshot clip height cannot be 0')
 
-        return await self._screenshotTaskQueue.post_task(
+        screenshot = await self._screenshotTaskQueue.post_task(
             self._screenshotTask(
                 format=type_,
                 omitBackground=omitBackground,
@@ -1187,6 +1187,18 @@ class Page(AsyncIOEventEmitter):
                 path=path,
             )
         )
+
+        # MEMORY LEAK FIX: Force cleanup after screenshot to free C-level memory
+        # Screenshots are large and binascii.a2b_base64 holds memory
+        import gc
+        gc.collect()
+        try:
+            import ctypes
+            ctypes.CDLL('libc.so.6').malloc_trim(0)
+        except Exception:
+            pass
+
+        return screenshot
 
     async def _screenshotTask(
         self,
@@ -1253,14 +1265,35 @@ class Page(AsyncIOEventEmitter):
         if fullPage and self._viewport is not None:
             await self.setViewport(self._viewport)
 
+        # MEMORY LEAK FIX: Minimize variables holding large data
         if encoding == 'base64':
-            buffer = result.get('data', b'')
+            data = result.get('data', b'')
+            del result  # Free the result dict immediately
+            if path:
+                with open(path, 'wb') as f:
+                    f.write(data)
+            return data
         else:
-            buffer = base64.b64decode(result.get('data', b''))
-        if path:
-            with open(path, 'wb') as f:
-                f.write(buffer)
-        return buffer
+            # Decode path - most common case
+            data = result.get('data', b'')
+            del result  # Free the result dict immediately (holds large base64 string)
+            decoded = base64.b64decode(data)
+            del data  # Free the base64 string immediately after decode
+
+            # Force C-level memory release after base64 decode
+            # binascii.a2b_base64 holds memory in C heap
+            import gc
+            gc.collect()
+            try:
+                import ctypes
+                ctypes.CDLL('libc.so.6').malloc_trim(0)
+            except Exception:
+                pass
+
+            if path:
+                with open(path, 'wb') as f:
+                    f.write(decoded)
+            return decoded
 
     async def pdf(
         self,
