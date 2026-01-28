@@ -11,6 +11,13 @@ from pyppeteer.page import Page
 
 
 async def attachFrame(page: Page, url: str, frameId: str = None):
+    """Attach an iframe to the page.
+
+    Args:
+        page: The page to attach the frame to
+        url: The URL to load in the iframe
+        frameId: The ID for the iframe element (optional, auto-generated if not provided)
+    """
     if frameId is None:
         frameId = f'frame_autogen_name_{random.randint(100000,999999)}'
     attach_frame_js = '''

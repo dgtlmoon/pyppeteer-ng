@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 
 from aiohttp import web
 from aiohttp.log import web_logger
-from aiohttp.web_app import _Middleware
+from aiohttp.typedefs import Middleware
 from aiohttp.web_exceptions import HTTPNotFound
 from aiohttp.web_urldispatcher import UrlDispatcher
 
@@ -23,7 +23,7 @@ class WrappedApplication(web.Application):
         *,
         logger: logging.Logger = web_logger,
         router: Optional[UrlDispatcher] = None,
-        middlewares: Iterable[_Middleware] = (),
+        middlewares: Iterable[Middleware] = (),
         handler_args: Mapping[str, Any] = None,
         client_max_size: int = 1024 ** 2,
         loop: Optional[asyncio.AbstractEventLoop] = None,
@@ -110,14 +110,24 @@ class WrappedApplication(web.Application):
 
         self.add_pre_request_subscriber(path, responder, should_return=True)
 
-    def one_time_request_delay(self, path: str):
+    def one_time_request_delay(self, path: str, delay: float = 0):
+        """Delay a request to the given path by the specified number of seconds."""
         fut = asyncio.get_event_loop().create_future()
 
         async def holder():
+            if delay > 0:
+                await asyncio.sleep(delay)
             await fut
 
         self.add_pre_request_subscriber(path, holder, should_return=False)
         return fut
+
+    def add_one_time_header_for_request(self, path: str, headers: Dict):
+        """Add custom headers for a one-time request to the given path."""
+        from urllib.parse import urlparse
+        # Extract just the path from the URL if a full URL is provided
+        parsed_path = urlparse(path).path.strip('/')
+        self.headers[parsed_path] = headers
 
     def waitForRequest(self, path: str):
         fut = asyncio.get_event_loop().create_future()
@@ -127,6 +137,44 @@ class WrappedApplication(web.Application):
 
         self.add_pre_request_subscriber(path, resolve_fut, should_return=False)
         return fut
+
+    def listen(self, port: int):
+        """
+        Start the aiohttp server on the specified port.
+        This provides backward compatibility with Tornado's listen() API.
+
+        Returns a server handle that can be used to stop the server.
+        """
+        loop = asyncio.get_event_loop()
+
+        # Create and setup runner
+        runner = web.AppRunner(self)
+        loop.run_until_complete(runner.setup())
+
+        # Create and start site
+        site = web.TCPSite(runner, 'localhost', port, reuse_address=True)
+        loop.run_until_complete(site.start())
+
+        # Return an object with stop() method for compatibility
+        class ServerHandle:
+            def __init__(self, runner, site):
+                self._runner = runner
+                self._site = site
+
+            def stop(self):
+                loop = asyncio.get_event_loop()
+                loop.run_until_complete(self._site.stop())
+                loop.run_until_complete(self._runner.cleanup())
+
+        return ServerHandle(runner, site)
+
+
+def get_application():
+    """
+    Returns a WrappedApplication instance for backward compatibility.
+    Note: This uses aiohttp, not Tornado. Tests expecting Tornado API will need updates.
+    """
+    return WrappedApplication()
 
 
 def create_request_content_cache_fn(content):
@@ -170,8 +218,19 @@ async def app_runner(assets_path, free_port_0, free_port_1):
                     return result
 
         file_path = assets_path / request.match_info['path']
-        if not file_path.exists():
+
+        # If path is empty or is a directory, serve index.html or empty.html
+        if path == '' or (file_path.exists() and file_path.is_dir()):
+            # Try index.html first, then empty.html as fallback
+            if (assets_path / 'index.html').exists():
+                file_path = assets_path / 'index.html'
+            elif (assets_path / 'empty.html').exists():
+                file_path = assets_path / 'empty.html'
+            else:
+                raise HTTPNotFound()  # ie 404
+        elif not file_path.exists():
             raise HTTPNotFound()  # ie 404
+
         return web.FileResponse(file_path, headers=headers)
 
     app = WrappedApplication()
@@ -181,8 +240,8 @@ async def app_runner(assets_path, free_port_0, free_port_1):
     ssl_ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
     cert_dir = Path(__file__).parent
     ssl_ctx.load_cert_chain(certfile=cert_dir / 'cert.pem', keyfile=cert_dir / 'private.key')
-    http_site = web.TCPSite(runner, port=free_port_0, reuse_address=True)
-    https_site = web.TCPSite(runner, port=free_port_1, ssl_context=ssl_ctx, reuse_address=True)
+    http_site = web.TCPSite(runner, host='127.0.0.1', port=free_port_0, reuse_address=True)
+    https_site = web.TCPSite(runner, host='127.0.0.1', port=free_port_1, ssl_context=ssl_ctx, reuse_address=True)
     await asyncio.gather(http_site.start(), https_site.start())
     return app
 

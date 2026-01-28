@@ -242,7 +242,7 @@ async def test_types_emoji(isolated_page, server):
 @sync
 async def test_types_emoji_in_iframe(isolated_page, server):
     await isolated_page.goto(server.empty_page)
-    await attachFrame(isolated_page, server / 'input/textarea.html')
+    await attachFrame(isolated_page, server / 'input/textarea.html', 'emoji-frame')
     frame = isolated_page.frames[1]
     text = '👹 Tokyo street Japan 🇯🇵'
     textarea = await frame.J('textarea')

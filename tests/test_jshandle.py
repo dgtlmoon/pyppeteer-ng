@@ -26,7 +26,7 @@ async def test_handle_primitive_types(isolated_page, server):
     """test getting handle"""
     p = isolated_page
     handle = await p.evaluateHandle('5')
-    assert p.evaluate('e => Object.is(e, 5)', handle)
+    assert await p.evaluate('e => Object.is(e, 5)', handle)
 
 
 @sync

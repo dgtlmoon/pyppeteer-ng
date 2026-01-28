@@ -1,0 +1,136 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+    branches: [ dev, master, main ]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint (flake8)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+
+      - name: Install flake8
+        run: pip install flake8
+
+      - name: Check for syntax errors and critical issues
+        run: flake8 pyppeteer tests --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Check code style (informational only)
+        continue-on-error: true
+        run: flake8 pyppeteer tests --exit-zero --max-line-length=120 --exclude=docs,.svn,CVS,.bzr,.hg,.git,__pycache__,.tox,.eggs,*.egg,out --statistics
+
+  mypy:
+    name: Type checking (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+
+      - name: Install tox
+        run: pip install tox
+
+      - name: Check typing
+        continue-on-error: true
+        env:
+          TOXENV: mypy
+          MYPY_JUNIT_XML_PATH: /tmp/tests/mypy/results.xml
+        run: tox
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mypy-results
+          path: /tmp/tests/
+
+  test:
+    name: Test Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        include:
+          - python-version: "3.8"
+            toxenv: py38
+            upload-coverage: true
+          - python-version: "3.9"
+            toxenv: py39
+            upload-coverage: false
+          - python-version: "3.10"
+            toxenv: py310
+            upload-coverage: false
+          - python-version: "3.11"
+            toxenv: py311
+            upload-coverage: false
+          - python-version: "3.12"
+            toxenv: py312
+            upload-coverage: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install headless Chrome dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -yq \
+            ca-certificates fonts-liberation libasound2t64 libatk-bridge2.0-0 \
+            libcairo2 libcups2 libdbus-1-3 libdrm2 libgbm1 \
+            libgdk-pixbuf2.0-0 libglib2.0-0 libgtk-3-0 libnspr4 libnss3 \
+            libpango-1.0-0 libpangocairo-1.0-0 libx11-6 libx11-xcb1 \
+            libxcb1 libxcomposite1 libxcursor1 libxdamage1 libxext6 \
+            libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 \
+            lsb-release xdg-utils wget
+
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pypoetry
+          key: poetry-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            poetry-${{ runner.os }}-${{ matrix.python-version }}-
+
+      - name: Install tox
+        run: pip install tox
+
+      - name: Run tests
+        env:
+          TOXENV: ${{ matrix.toxenv }}
+          PYTEST_ADDOPTS: -n 8 --junitxml=/tmp/tests/pytest/results.xml ${{ matrix.upload-coverage && '--cov=./ --cov-report=xml' || '' }}
+        run: tox
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-${{ matrix.python-version }}
+          path: /tmp/tests/
+
+      - name: Upload coverage to Codecov
+        if: matrix.upload-coverage && always()
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: Python ${{ matrix.python-version }}
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

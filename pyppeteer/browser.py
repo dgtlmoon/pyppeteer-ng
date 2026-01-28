@@ -242,7 +242,6 @@ class Browser(AsyncIOEventEmitter):
         self.remove_listener(Events.Browser.TargetChanged, check)
         return result
 
-    @property
     async def pages(self) -> List['Page']:
         """Get all pages of this browser.
 
@@ -281,6 +280,14 @@ class Browser(AsyncIOEventEmitter):
         for target in self._targets.values():
             if not target._isInitialized:
                 target._initializedCallback(False)
+
+    async def __aenter__(self) -> 'Browser':
+        """Async context manager entry."""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Async context manager exit - ensures browser is closed."""
+        await self.close()
 
     @property
     def isConnected(self) -> bool:

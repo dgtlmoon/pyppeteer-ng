@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from contextlib import suppress
 from pathlib import Path
@@ -48,6 +49,7 @@ class BrowserRunner:
 
         self._altered_sighandlers: Set[int] = set()
         self._closed = True
+        self.dumpio = False
 
     def start(self, **kwargs: LaunchOptions) -> None:
         process_opts = {}
@@ -56,17 +58,13 @@ class BrowserRunner:
         if kwargs.get('env'):
             process_opts['env'] = kwargs['env']
 
-        if not kwargs.get('dumpio'):
-            # we read stdout to check it for the ws endpoint
-            process_opts['stdout'] = subprocess.PIPE
-            process_opts['stderr'] = subprocess.STDOUT
-        else:
-            # todo: dumpio. See: https://pptr.dev/#?product=Puppeteer&version=v2.1.1&show=api-puppeteerlaunchoptions
-            # we need to tee proc stdout to both PIPE (so we can read it) and stdout (so users can see dumped IO)
-            # see these SO threads:
-            # https://stackoverflow.com/q/2996887/
-            # https://stackoverflow.com/q/17190221/
-            raise NotImplementedError(f'dumpio argument currently  not implemented')
+        # Always pipe stdout and stderr so we can read them
+        # When dumpio is enabled, we'll forward the output to sys.stderr in waitForWSEndpoint
+        process_opts['stdout'] = subprocess.PIPE
+        process_opts['stderr'] = subprocess.STDOUT
+
+        # Store dumpio setting for later use
+        self.dumpio = kwargs.get('dumpio', False)
 
         assert self.proc is None, 'This process has previously been started'
 
@@ -122,6 +120,7 @@ class BrowserRunner:
                 except Exception as e:
                     logger.error(f'An exception occurred: {e}')
                     self.kill()
+            self._closed = True  # Mark as closed before calling _close_proc to avoid double-close
         return await self._close_proc()
 
     def kill(self) -> None:
@@ -162,7 +161,23 @@ class BrowserRunner:
             # self.connection = Connection('', transport, delay=slowMo)
         if self.proc is None:
             raise RuntimeError('class process not initialized (self.proc = None)')
-        browser_ws_endpoint = waitForWSEndpoint(self.proc, timeout, preferredRevision)
+        browser_ws_endpoint = waitForWSEndpoint(self.proc, timeout, preferredRevision, self.dumpio)
+
+        # If dumpio is enabled, continue forwarding output in a background thread
+        if self.dumpio and self.proc.stdout:
+            def forward_output():
+                try:
+                    for line in iter(self.proc.stdout.readline, b''):
+                        if not line:
+                            break
+                        sys.stderr.write(line.decode())
+                        sys.stderr.flush()
+                except Exception:
+                    pass  # Process may have terminated
+
+            thread = threading.Thread(target=forward_output, daemon=True)
+            thread.start()
+
         transport = await WebsocketTransport.create(uri=browser_ws_endpoint)
         self.connection = Connection(url=browser_ws_endpoint, transport=transport, delay=slowMo)
         return self.connection
@@ -185,7 +200,12 @@ class BaseBrowserLauncher:
         ignoreHTTPSErrors: bool = False,
         slowMo: float = 0,
         defaultViewport: Protocol.Page.Viewport = None,
+        logLevel: int = None,
     ) -> Browser:
+        # Set log level if specified
+        if logLevel is not None:
+            logging.getLogger('pyppeteer').setLevel(logLevel)
+
         if defaultViewport is None:
             defaultViewport = {'width': 800, 'height': 600}
 
@@ -243,10 +263,71 @@ class ChromeLauncher(BaseBrowserLauncher):
     ]
     product = 'chrome'
 
-    def __init__(self, projectRoot: str = None, preferredRevision: str = None):
+    def __init__(
+        self,
+        options: dict = None,
+        projectRoot: str = None,
+        preferredRevision: str = None,
+        ignoreDefaultArgs: Union[bool, List[str]] = False,
+        **kwargs
+    ):
         if not preferredRevision:
             preferredRevision = __chromium_revision__
         super().__init__(projectRoot, preferredRevision)
+
+        # Merge options dict with kwargs for backward compatibility
+        if options:
+            if isinstance(options, dict):
+                kwargs.update(options)
+
+        # Process options to set up launcher configuration
+        self._options = kwargs
+        self._ignoreDefaultArgs = kwargs.get('ignoreDefaultArgs', ignoreDefaultArgs)
+        self._args = kwargs.get('args', [])
+        self._executablePath = kwargs.get('executablePath', None)
+        self._headless = kwargs.get('headless', True)
+        self._userDataDir = kwargs.get('userDataDir', None)
+
+        # Set up chrome arguments
+        chrome_args = []
+        if not self._ignoreDefaultArgs:
+            chrome_args.extend(self.default_args(**kwargs))
+        elif isinstance(self._ignoreDefaultArgs, list):
+            chrome_args.extend([x for x in self.default_args(**kwargs) if x not in self._ignoreDefaultArgs])
+        else:
+            chrome_args.extend(self._args)
+
+        # Add user-provided args
+        if self._args and not self._ignoreDefaultArgs:
+            chrome_args.extend(self._args)
+
+        # Handle user data dir
+        if self._userDataDir:
+            chrome_args.append(f'--user-data-dir={self._userDataDir}')
+            self.temporaryUserDataDir = None
+        elif not any(x.startswith('--user-data-dir') for x in chrome_args):
+            self.temporaryUserDataDir = tempfile.TemporaryDirectory(prefix='pyppeteer_chrome_profile_')
+            chrome_args.append(f'--user-data-dir={self.temporaryUserDataDir.name}')
+        else:
+            self.temporaryUserDataDir = None
+
+        self.chromeArguments = chrome_args
+
+        # Set chrome executable
+        if self._executablePath:
+            self.chromeExecutable = str(self._executablePath)
+        else:
+            chrome_executable, missing_text = resolveExecutablePath(self.projectRoot, self.preferredRevision)
+            if missing_text:
+                # Don't raise during init, just store for later
+                self.chromeExecutable = None
+                self._missing_text = missing_text
+            else:
+                self.chromeExecutable = str(chrome_executable)
+                self._missing_text = None
+
+        # Build command for inspection
+        self.cmd = [self.chromeExecutable] + self.chromeArguments if self.chromeExecutable else []
 
     @property
     def executable_path(self) -> Optional[str]:
@@ -265,7 +346,12 @@ class ChromeLauncher(BaseBrowserLauncher):
         defaultViewport = kwargs.get('defaultViewport', {'width': 800, 'height': 600})
         slowMo = kwargs.get('slowMo', 0)
         timeout = kwargs.get('timeout', 30_000)
+        logLevel = kwargs.get('logLevel', None)
         profile_path = None
+
+        # Set log level if specified
+        if logLevel is not None:
+            logging.getLogger('pyppeteer').setLevel(logLevel)
 
         chrome_args = []
         if not ignoreDefaultArgs:
@@ -615,13 +701,19 @@ class FirefoxLauncher(BaseBrowserLauncher):
         return profile_path
 
 
-def waitForWSEndpoint(proc: subprocess.Popen, timeout: Optional[float], preferredRevision: Optional[str]) -> str:
+def waitForWSEndpoint(proc: subprocess.Popen, timeout: Optional[float], preferredRevision: Optional[str], dumpio: bool = False) -> str:
     assert proc.stdout is not None, 'process STDOUT wasn\'t piped'
     start = time.perf_counter()
     buffer = ''
     for line in iter(proc.stdout.readline, b''):
         line = line.decode()
         buffer += '\n' + line
+
+        # If dumpio is enabled, forward the output to stderr
+        if dumpio:
+            sys.stderr.write(line)
+            sys.stderr.flush()
+
         if timeout and (start - time.perf_counter()) > timeout:
             raise TimeoutError(
                 f'Timed out after {timeout * 1000:.0f}ms while trying to connect to the browser! '
@@ -629,7 +721,9 @@ def waitForWSEndpoint(proc: subprocess.Popen, timeout: Optional[float], preferre
             )
         potential_match = re.match(r'DevTools listening on (ws://[\w.:/-]*)+', line)
         if potential_match:
-            return potential_match.group(1)
+            endpoint = potential_match.group(1)
+            logger.info(f'DevTools listening on {endpoint}')
+            return endpoint
     raise RuntimeError(
         buffer + '\nProcess ended before WebSockets endpoint could be found.'
         f'Only Chrome at revision {preferredRevision} is guaranteed to work.'

@@ -213,12 +213,18 @@ class DOMWorld:
             if not path.is_file():
                 raise ValueError(f'The specified path, {path.name}, is not a file')
             contents = await readFileAsync(path, 'utf8')
-            contents += '//# sourceURL' + path.name
-            f = context.evaluateHandle(addScriptContent, contents, type_)
-            return (await f).asElement()
+            contents += '//# sourceURL=' + path.name
+            if type_:
+                f = await context.evaluateHandle(addScriptContent, contents, type_)
+            else:
+                f = await context.evaluateHandle(addScriptContent, contents)
+            return f.asElement()
         if content:
-            f = context.evaluateHandle(addScriptContent, content, type_)
-            return (await f).asElement()
+            if type_:
+                f = await context.evaluateHandle(addScriptContent, content, type_)
+            else:
+                f = await context.evaluateHandle(addScriptContent, content)
+            return f.asElement()
         raise BrowserError('provide a url, path or content argument')
 
     async def addStyleTag(

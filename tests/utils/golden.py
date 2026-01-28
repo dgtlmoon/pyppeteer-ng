@@ -32,7 +32,7 @@ def compare_text(actual: str, expected: str):
     if expected == actual:
         return
 
-    diff = diff_match_path()
+    diff = diff_match_patch()
     res = diff.diff_main(expected, actual)
     diff.diff_cleanupSemantic(res)
     html = diff.diff_prettyHTML(res)

@@ -592,7 +592,7 @@ class TestRequestRespond:
 
         resp = await isolated_page.goto(server.empty_page)
         assert resp.status == HTTPStatus.UNPROCESSABLE_ENTITY.value
-        assert resp.statusText == HTTPStatus.UNPROCESSABLE_ENTITY.name
+        assert resp.statusText == HTTPStatus.UNPROCESSABLE_ENTITY.phrase
         assert await isolated_page.evaluate('document.body.textContent') == 'Yo, Page!'
 
     @sync

@@ -14,7 +14,7 @@ blank_png_path = root_path / 'blank_800x600.png'
 blank_pdf_path = root_path / 'blank.pdf'
 
 
-class TestScreenShot:
+class TestScreenShot(TestCase):
     def setUp(self):
         self.browser = sync(launch(args=['--no-sandbox']))
         self.target_path = Path(__file__).resolve().parent / 'test.png'
@@ -32,7 +32,7 @@ class TestScreenShot:
         await page.goto('about:blank')
         options = {'path': str(self.target_path)}
         self.assertFalse(self.target_path.exists())
-        await page.screenshot(options)
+        await page.screenshot(**options)
         self.assertTrue(self.target_path.exists())
 
         with self.target_path.open('rb') as f:
@@ -55,7 +55,7 @@ class TestScreenShot:
         page = await self.browser.newPage()
         await page.goto('about:blank')
         options = {'encoding': 'base64'}
-        result = await page.screenshot(options)
+        result = await page.screenshot(**options)
         with blank_png_path.open('rb') as f:
             sample = f.read()
         self.assertEqual(base64.b64decode(result), sample)
@@ -67,7 +67,7 @@ class TestScreenShot:
         element = await page.J('h1')
         options = {'path': str(self.target_path)}
         self.assertFalse(self.target_path.exists())
-        await element.screenshot(options)
+        await element.screenshot(**options)
         self.assertTrue(self.target_path.exists())
 
     @sync
@@ -76,10 +76,10 @@ class TestScreenShot:
         await page.goto('about:blank')
         options = {'path': 'example.unsupported'}
         with self.assertRaises(ValueError, msg='mime type: unsupported'):
-            await page.screenshot(options)
+            await page.screenshot(**options)
 
 
-class TestPDF:
+class TestPDF(TestCase):
     def setUp(self):
         self.browser = sync(launch(args=['--no-sandbox']))
         self.target_path = Path(__file__).resolve().parent / 'test.pdf'

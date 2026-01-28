@@ -32,13 +32,13 @@ async def test_incognito_context(shared_browser):
 
 @sync
 async def test_close_all_targets_on_closing_context(shared_browser):
-    assert len(await shared_browser.pages) == 1
+    assert len(await shared_browser.pages()) == 1
     context = await shared_browser.createIncognitoBrowserContext()
     await context.newPage()
-    assert len(await shared_browser.pages) == 2
+    assert len(await shared_browser.pages()) == 2
     assert len(await context.pages()) == 1
     await context.close()
-    assert len(await shared_browser.pages) == 1
+    assert len(await shared_browser.pages()) == 1
 
 
 @sync
@@ -67,6 +67,7 @@ async def test_fire_target_event(server, shared_browser):
         f'CHANGED: {server.empty_page}',
         f'DESTROYED: {server.empty_page}',
     ]
+    await context.close()
 
 
 @sync

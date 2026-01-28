@@ -7,7 +7,7 @@ import unittest
 from syncer import sync
 
 
-class TestTarget:
+class TestTarget(unittest.TestCase):
     @sync
     async def test_targets(self):
         targets = self.browser.targets()
@@ -18,7 +18,7 @@ class TestTarget:
 
     @sync
     async def test_return_all_pages(self):
-        pages = await self.context.pages
+        pages = await self.context.pages()
         self.assertEqual(len(pages), 1)
         self.assertIn(self.page, pages)
 
@@ -30,7 +30,7 @@ class TestTarget:
 
     @sync
     async def test_default_page(self):
-        pages = await self.browser.pages
+        pages = await self.browser.pages()
         page = [page for page in pages if page != self.page][0]
         self.assertEqual(await page.evaluate('["Hello", "world"].join(" ")'), 'Hello world')
         self.assertTrue(await page.J('body'))
@@ -39,14 +39,15 @@ class TestTarget:
     async def test_report_new_page(self):
         otherPagePromise = asyncio.get_event_loop().create_future()
         self.context.once('targetcreated', lambda target: otherPagePromise.set_result(target))
-        await self.page.evaluate('url => window.open(url)', 'http://127.0.0.1:{}'.format(self.port))
+        # Wrap window.open in void to avoid "Object reference chain is too long" error
+        await self.page.evaluate('url => { window.open(url); }', 'http://127.0.0.1:{}'.format(self.port))
         otherPage = await (await otherPagePromise).page()
 
         self.assertIn('127.0.0.1', otherPage.url)
         self.assertEqual(await otherPage.evaluate('["Hello", "world"].join(" ")'), 'Hello world')
         self.assertTrue(await otherPage.J('body'))
 
-        pages = await self.context.pages
+        pages = await self.context.pages()
         self.assertIn(self.page, pages)
         self.assertIn(otherPage, pages)
 
@@ -60,7 +61,7 @@ class TestTarget:
         await otherPage.close()
         self.assertEqual(await closePagePromise, otherPage)
 
-        pages = await self.context.pages
+        pages = await self.context.pages()
         self.assertIn(self.page, pages)
         self.assertNotIn(otherPage, pages)
 
@@ -70,10 +71,10 @@ class TestTarget:
         createdTargetPromise = asyncio.get_event_loop().create_future()
         self.context.once('targetcreated', lambda t: createdTargetPromise.set_result(t))
 
-        await self.page.goto(self.url + 'assets/serviceworkers/empty/sw.html')
+        await self.page.goto(self.url + 'serviceworkers/empty/sw.html')
         createdTarget = await createdTargetPromise
         self.assertEqual(createdTarget.type, 'service_worker')
-        self.assertEqual(createdTarget.url, self.url + 'assets/serviceworkers/empty/sw.js')
+        self.assertEqual(createdTarget.url, self.url + 'serviceworkers/empty/sw.js')
 
         destroyedTargetPromise = asyncio.get_event_loop().create_future()
         self.context.once('targetdestroyed', lambda t: destroyedTargetPromise.set_result(t))
@@ -115,7 +116,8 @@ class TestTarget:
         newPage = await newPagePromise
         targetPromise2 = asyncio.get_event_loop().create_future()
         self.context.once('targetcreated', lambda t: targetPromise2.set_result(t))
-        evaluatePromise = asyncio.ensure_future(newPage.evaluate('window.open("about:blank")'))
+        # Wrap window.open in void to avoid "Object reference chain is too long" error
+        evaluatePromise = asyncio.ensure_future(newPage.evaluate('() => { window.open("about:blank"); }'))
         target2 = await targetPromise2
         self.assertEqual(target2.url, 'about:blank')
         await evaluatePromise
@@ -137,10 +139,10 @@ class TestTarget:
         await self.page.goto(self.url + 'empty')
         targetPromise = asyncio.get_event_loop().create_future()
         self.context.once('targetcreated', lambda target: targetPromise.set_result(target))
-        await self.page.goto(self.url + 'assets/popup/window-open.html')
+        await self.page.goto(self.url + 'popup/window-open.html')
         createdTarget = await targetPromise
         self.assertEqual(
-            (await createdTarget.page()).url, self.url + 'assets/popup/popup.html',
+            (await createdTarget.page()).url, self.url + 'popup/popup.html',
         )
         self.assertEqual(createdTarget.opener, self.page.target)
         self.assertIsNone(self.page.target.opener)
