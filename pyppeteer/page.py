@@ -6,6 +6,7 @@
 import asyncio
 import base64
 import inspect
+import io
 import json
 import logging
 import math
@@ -46,6 +47,43 @@ if TYPE_CHECKING:
     from pyppeteer.browser import Browser, BrowserContext
 
 logger = logging.getLogger(__name__)
+
+# Base64 streaming chunk size (1MB, must be multiple of 4)
+_B64_CHUNK_SIZE = 1024 * 1024
+
+
+def _stream_decode_base64_to_file(b64_string: str, file_obj, chunk_chars: int = _B64_CHUNK_SIZE) -> None:
+    """
+    Decode a large base64 string in chunks, writing directly to a file object.
+
+    This avoids holding the entire decoded data in memory, which is critical for
+    large screenshots and PDFs that can be tens or hundreds of MB.
+
+    Args:
+        b64_string: Base64 encoded string
+        file_obj: File-like object opened in binary write mode
+        chunk_chars: Number of base64 characters to process per iteration (must be multiple of 4)
+    """
+    # Ensure chunk_chars is multiple of 4 for proper base64 alignment
+    if chunk_chars % 4:
+        chunk_chars += 4 - (chunk_chars % 4)
+
+    carry = ""  # Leftover chars from previous chunk (<4 chars)
+    n = len(b64_string)
+
+    for i in range(0, n, chunk_chars):
+        piece = carry + b64_string[i:i + chunk_chars]
+
+        # Decode only the part that's a multiple of 4 chars
+        cut = (len(piece) // 4) * 4
+        to_decode, carry = piece[:cut], piece[cut:]
+
+        if to_decode:
+            file_obj.write(base64.b64decode(to_decode.encode('ascii'), validate=False))
+
+    # Handle any remaining chars
+    if carry:
+        file_obj.write(base64.b64decode(carry.encode('ascii'), validate=False))
 
 
 class Page(AsyncIOEventEmitter):
@@ -1188,16 +1226,6 @@ class Page(AsyncIOEventEmitter):
             )
         )
 
-        # MEMORY LEAK FIX: Force cleanup after screenshot to free C-level memory
-        # Screenshots are large and binascii.a2b_base64 holds memory
-        import gc
-        gc.collect()
-        try:
-            import ctypes
-            ctypes.CDLL('libc.so.6').malloc_trim(0)
-        except Exception:
-            pass
-
         return screenshot
 
     async def _screenshotTask(
@@ -1265,7 +1293,7 @@ class Page(AsyncIOEventEmitter):
         if fullPage and self._viewport is not None:
             await self.setViewport(self._viewport)
 
-        # MEMORY LEAK FIX: Minimize variables holding large data
+        # MEMORY LEAK FIX: Stream base64 decoding to avoid holding large data in memory
         if encoding == 'base64':
             data = result.get('data', b'')
             del result  # Free the result dict immediately
@@ -1274,26 +1302,24 @@ class Page(AsyncIOEventEmitter):
                     f.write(data)
             return data
         else:
-            # Decode path - most common case
-            data = result.get('data', b'')
-            del result  # Free the result dict immediately (holds large base64 string)
-            decoded = base64.b64decode(data)
-            del data  # Free the base64 string immediately after decode
-
-            # Force C-level memory release after base64 decode
-            # binascii.a2b_base64 holds memory in C heap
-            import gc
-            gc.collect()
-            try:
-                import ctypes
-                ctypes.CDLL('libc.so.6').malloc_trim(0)
-            except Exception:
-                pass
+            # Stream decode base64 to file/memory without holding full decoded bytes
+            b64_str = result.get('data', '')
+            del result  # Free the result dict immediately
 
             if path:
+                # Stream directly to file
                 with open(path, 'wb') as f:
-                    f.write(decoded)
-            return decoded
+                    _stream_decode_base64_to_file(b64_str, f)
+                del b64_str
+                return b''
+            else:
+                # Stream to in-memory buffer
+                buffer = io.BytesIO()
+                _stream_decode_base64_to_file(b64_str, buffer)
+                del b64_str
+                decoded = buffer.getvalue()
+                buffer.close()
+                return decoded
 
     async def pdf(
         self,
@@ -1445,11 +1471,25 @@ class Page(AsyncIOEventEmitter):
                 'preferCSSPageSize': preferCSSPageSize,
             },
         )
-        buffer = base64.b64decode(result.get('data', b''))
+
+        # MEMORY LEAK FIX: Stream base64 decoding for PDFs (can be very large)
+        b64_str = result.get('data', '')
+        del result  # Free the result dict immediately
+
         if path:
+            # Stream directly to file
             with open(path, 'wb') as f:
-                f.write(buffer)
-        return buffer
+                _stream_decode_base64_to_file(b64_str, f)
+            del b64_str
+            return b''
+        else:
+            # Stream to in-memory buffer
+            buffer = io.BytesIO()
+            _stream_decode_base64_to_file(b64_str, buffer)
+            del b64_str
+            pdf_bytes = buffer.getvalue()
+            buffer.close()
+            return pdf_bytes
 
     @property
     async def title(self) -> str:
