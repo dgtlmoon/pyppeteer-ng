@@ -12,6 +12,7 @@ import math
 import mimetypes
 import re
 import sys
+import traceback
 import warnings
 from copy import copy
 from pathlib import Path
@@ -672,12 +673,14 @@ class Page(AsyncIOEventEmitter):
         name = obj['name']
         seq = obj['seq']
         args = obj['args']
+        error_traceback = None
         try:
             func = self._pageBindings[name]
             func_res = func(*args)
             result = await func_res if inspect.isawaitable(func_res) else func_res
         except Exception as e:
-            result = str(e)
+            result = e
+            error_traceback = traceback.format_exc()
 
         deliverResult = '''
             function deliverResult(name, seq, result) {
@@ -686,14 +689,19 @@ class Page(AsyncIOEventEmitter):
             }
         '''
         deliverError = '''
-            function deliverError(name, seq, message) {
+            function deliverError(name, seq, message, stack) {
                 const error = new Error(message);
+                if (stack) {
+                    error.stack = stack;
+                }
                 window[name]['callbacks'].get(seq).reject(error);
                 window[name]['callbacks'].delete(seq);
             }
         '''
         if isinstance(result, Exception):
-            expression = helpers.evaluationString(deliverError, name, seq, str(result))
+            error_message = str(result)
+            error_stack = f'Error: {error_message}\n{error_traceback}' if error_traceback else None
+            expression = helpers.evaluationString(deliverError, name, seq, error_message, error_stack)
         else:
             expression = helpers.evaluationString(deliverResult, name, seq, result)
 
