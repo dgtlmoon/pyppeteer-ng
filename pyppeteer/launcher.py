@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from contextlib import suppress
 from pathlib import Path
@@ -48,6 +49,7 @@ class BrowserRunner:
 
         self._altered_sighandlers: Set[int] = set()
         self._closed = True
+        self.dumpio = False
 
     def start(self, **kwargs: LaunchOptions) -> None:
         process_opts = {}
@@ -56,17 +58,13 @@ class BrowserRunner:
         if kwargs.get('env'):
             process_opts['env'] = kwargs['env']
 
-        if not kwargs.get('dumpio'):
-            # we read stdout to check it for the ws endpoint
-            process_opts['stdout'] = subprocess.PIPE
-            process_opts['stderr'] = subprocess.STDOUT
-        else:
-            # todo: dumpio. See: https://pptr.dev/#?product=Puppeteer&version=v2.1.1&show=api-puppeteerlaunchoptions
-            # we need to tee proc stdout to both PIPE (so we can read it) and stdout (so users can see dumped IO)
-            # see these SO threads:
-            # https://stackoverflow.com/q/2996887/
-            # https://stackoverflow.com/q/17190221/
-            raise NotImplementedError(f'dumpio argument currently  not implemented')
+        # Always pipe stdout and stderr so we can read them
+        # When dumpio is enabled, we'll forward the output to sys.stderr in waitForWSEndpoint
+        process_opts['stdout'] = subprocess.PIPE
+        process_opts['stderr'] = subprocess.STDOUT
+
+        # Store dumpio setting for later use
+        self.dumpio = kwargs.get('dumpio', False)
 
         assert self.proc is None, 'This process has previously been started'
 
@@ -163,7 +161,23 @@ class BrowserRunner:
             # self.connection = Connection('', transport, delay=slowMo)
         if self.proc is None:
             raise RuntimeError('class process not initialized (self.proc = None)')
-        browser_ws_endpoint = waitForWSEndpoint(self.proc, timeout, preferredRevision)
+        browser_ws_endpoint = waitForWSEndpoint(self.proc, timeout, preferredRevision, self.dumpio)
+
+        # If dumpio is enabled, continue forwarding output in a background thread
+        if self.dumpio and self.proc.stdout:
+            def forward_output():
+                try:
+                    for line in iter(self.proc.stdout.readline, b''):
+                        if not line:
+                            break
+                        sys.stderr.write(line.decode())
+                        sys.stderr.flush()
+                except Exception:
+                    pass  # Process may have terminated
+
+            thread = threading.Thread(target=forward_output, daemon=True)
+            thread.start()
+
         transport = await WebsocketTransport.create(uri=browser_ws_endpoint)
         self.connection = Connection(url=browser_ws_endpoint, transport=transport, delay=slowMo)
         return self.connection
@@ -687,13 +701,19 @@ class FirefoxLauncher(BaseBrowserLauncher):
         return profile_path
 
 
-def waitForWSEndpoint(proc: subprocess.Popen, timeout: Optional[float], preferredRevision: Optional[str]) -> str:
+def waitForWSEndpoint(proc: subprocess.Popen, timeout: Optional[float], preferredRevision: Optional[str], dumpio: bool = False) -> str:
     assert proc.stdout is not None, 'process STDOUT wasn\'t piped'
     start = time.perf_counter()
     buffer = ''
     for line in iter(proc.stdout.readline, b''):
         line = line.decode()
         buffer += '\n' + line
+
+        # If dumpio is enabled, forward the output to stderr
+        if dumpio:
+            sys.stderr.write(line)
+            sys.stderr.flush()
+
         if timeout and (start - time.perf_counter()) > timeout:
             raise TimeoutError(
                 f'Timed out after {timeout * 1000:.0f}ms while trying to connect to the browser! '
