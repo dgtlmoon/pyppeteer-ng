@@ -1,6 +1,9 @@
 name: Publish Python 🐍distribution 📦 to PyPI and TestPyPI
 
-on: push
+on:
+  release:
+    # 'published' fires for pre-releases too, which 'released' does not - the rc tags need it.
+    types: [published]
 jobs:
   build:
     name: Build distribution 📦
@@ -30,7 +33,6 @@ jobs:
   publish-to-pypi:
     name: >-
       Publish Python 🐍 distribution 📦 to PyPI
-    if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
     needs:
     - build
     runs-on: ubuntu-latest
