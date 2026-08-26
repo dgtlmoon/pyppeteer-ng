@@ -3,6 +3,13 @@ History
 
 ## Version 2.0.0
 
+* Fix connection being torn down when a console message arrives without a stack trace.
+  `stackTrace` is optional in `Runtime.consoleAPICalled` and is omitted by V8 whenever a
+  console method is invoked with no JavaScript frame on the stack (e.g.
+  `setTimeout(console.debug, 0, x)` or `promise.then(console.debug)`). `Page._onConsoleAPI`
+  and `Worker` indexed the key directly, so the resulting `KeyError` propagated to
+  `Connection._onMessage`, which disposed the whole connection - surfacing as
+  `Navigation failed because browser has disconnected`.
 * Bump pyee version, which removes support for Python 3.7
 * Bumped included browser version to revision 1181205. It may not match the base p*u*ppeteer version, but at least it runs
 * Fix invalid escape sequence (#453)

@@ -66,7 +66,8 @@ class Worker(AsyncIOEventEmitter):
             args: List[JSHandle] = []
             for arg in event.get('args', []):
                 args.append(jsHandleFactory(arg))
-            consoleAPICalled(event['type'], args, event['stackTrace'])
+            # stackTrace is optional in Runtime.consoleAPICalled (see Page._onConsoleAPI).
+            consoleAPICalled(event['type'], args, event.get('stackTrace'))
 
         self._client.on('Runtime.consoleAPICalled', onConsoleAPICalled)
         self._client.on(

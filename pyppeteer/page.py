@@ -703,7 +703,9 @@ class Page(AsyncIOEventEmitter):
         values: List[JSHandle] = []
         for arg in event.get('args', []):
             values.append(createJSHandle(context, arg))
-        self._addConsoleMessage(event['type'], values, event['stackTrace'])
+        # stackTrace is optional in Runtime.consoleAPICalled; a KeyError here escapes to
+        # Connection._onMessage, which disposes the whole connection over one console message.
+        self._addConsoleMessage(event['type'], values, event.get('stackTrace'))
 
     async def _onBindingCalled(self, event: Dict) -> None:
         obj = json.loads(event['payload'])
