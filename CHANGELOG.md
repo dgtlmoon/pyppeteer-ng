@@ -13,6 +13,9 @@ History
 * Handle two more optional CDP fields: `Fetch.requestPaused.networkId` (uncorrelated paused
   requests disposed the connection) and `Tracing.tracingComplete.stream` (a missing stream
   left `Tracing.stop()` awaiting forever).
+* Allow urllib3 2.x (`>=1.25.8,<3`). urllib3 is only used to download Chromium, and the
+  calls involved are unchanged in 2.x; the old `^1.25.8` cap was the sole blocker keeping
+  dependent projects on urllib3 1.x (#1).
 * Bump pyee version, which removes support for Python 3.7
 * Bumped included browser version to revision 1181205. It may not match the base p*u*ppeteer version, but at least it runs
 * Fix invalid escape sequence (#453)
