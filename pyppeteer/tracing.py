@@ -8,6 +8,7 @@ from typing import Sequence, Union
 
 from pyppeteer import helpers
 from pyppeteer.connection import CDPSession
+from pyppeteer.errors import BrowserError
 
 
 class Tracing:
@@ -82,8 +83,19 @@ class Tracing:
 
         async def complete_trace(event):
             nonlocal self, contentFuture
-            result = await helpers.readProtocolStream(self._client, event['stream'], self._path)
-            contentFuture.set_result(result)
+            if contentFuture.done():
+                return
+            # Anything raised in here is swallowed by the event emitter, so contentFuture would
+            # never resolve and stop() would await it forever. Always settle the future.
+            try:
+                # stream is optional in Tracing.tracingComplete - absent if the trace was not
+                # started with transferMode=ReturnAsStream, or if it was discarded.
+                handle = event.get('stream')
+                if handle is None:
+                    raise BrowserError('Tracing.tracingComplete carried no stream; no trace data available')
+                contentFuture.set_result(await helpers.readProtocolStream(self._client, handle, self._path))
+            except Exception as e:
+                contentFuture.set_exception(e)
 
         self._client.once(
             'Tracing.tracingComplete', complete_trace,

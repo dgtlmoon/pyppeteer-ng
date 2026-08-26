@@ -10,6 +10,9 @@ History
   and `Worker` indexed the key directly, so the resulting `KeyError` propagated to
   `Connection._onMessage`, which disposed the whole connection - surfacing as
   `Navigation failed because browser has disconnected`.
+* Handle two more optional CDP fields: `Fetch.requestPaused.networkId` (uncorrelated paused
+  requests disposed the connection) and `Tracing.tracingComplete.stream` (a missing stream
+  left `Tracing.stop()` awaiting forever).
 * Bump pyee version, which removes support for Python 3.7
 * Bumped included browser version to revision 1181205. It may not match the base p*u*ppeteer version, but at least it runs
 * Fix invalid escape sequence (#453)

@@ -151,8 +151,14 @@ class NetworkManager(AsyncIOEventEmitter):
     async def _onRequestPaused(self, event: Dict) -> None:
         if not self._userRequestInterceptionEnabled and self._protocolRequestInterceptionEnabled:
             await self._client.send('Fetch.continueRequest', {'requestId': event.get('requestId')})
-        requestId = event['networkId']
+        # networkId is optional in Fetch.requestPaused - it is absent when the paused request
+        # has no corresponding Network domain request to correlate against. Upstream puppeteer
+        # bails out here too; indexing it raised KeyError, which Connection._onMessage turns
+        # into a disposal of the whole connection.
+        requestId = event.get('networkId')
         interceptionId = event['requestId']
+        if requestId is None:
+            return
         if requestId in self._requestIdToRequestWillBeSent:
             requestWillBeSentEvent = self._requestIdToRequestWillBeSent.pop(requestId)
             self._onRequest(requestWillBeSentEvent, interceptionId)
