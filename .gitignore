@@ -26,6 +26,7 @@ var/
 # Virtualenv
 env/
 venv/
+.venv*/
 bin/
 include/
 lib/

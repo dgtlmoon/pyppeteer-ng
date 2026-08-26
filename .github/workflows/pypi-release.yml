@@ -1,9 +1,9 @@
 name: Publish Python 🐍distribution 📦 to PyPI and TestPyPI
 
 on:
-  release:
-    # 'published' fires for pre-releases too, which 'released' does not - the rc tags need it.
-    types: [published]
+  push:
+    tags:
+      - '*'
 jobs:
   build:
     name: Build distribution 📦
@@ -15,6 +15,35 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: "3.x"
+    # PyPI rejects a re-upload of an existing version, so a forgotten bump shows up as a
+    # confusing "400 File already exists" at the very end. Fail here instead, with the reason.
+    - name: Check declared versions match the tag
+      run: |
+        python3 - "$GITHUB_REF_NAME" <<'EOF'
+        import pathlib, re, sys, tomllib
+        tag = sys.argv[1]
+        errors = []
+
+        pyproject = tomllib.loads(pathlib.Path('pyproject.toml').read_text())
+        declared = pyproject['tool']['poetry']['version']
+        if declared != tag:
+            errors.append(f"pyproject.toml version = {declared!r} but tag is {tag!r}")
+
+        init = pathlib.Path('pyppeteer/__init__.py').read_text()
+        m = re.search(r'''^__version__\s*=\s*['"]([^'"]+)['"]''', init, re.M)
+        if m is None:
+            errors.append("could not find __version__ in pyppeteer/__init__.py")
+        elif m.group(1) != tag:
+            errors.append(f"pyppeteer/__init__.py __version__ = {m.group(1)!r} but tag is {tag!r}")
+
+        if errors:
+            print(f"Version mismatch for tag {tag}:")
+            for e in errors:
+                print(f"  - {e}")
+            print("\nBump the version(s), then move the tag to the new commit.")
+            sys.exit(1)
+        print(f"OK: pyproject.toml and pyppeteer/__init__.py both declare {tag}")
+        EOF
     - name: Install pypa/build
       run: >-
         python3 -m
