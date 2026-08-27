@@ -17,7 +17,10 @@ else:
     from typing import TypedDict
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+# Deliberately no setLevel() here: choosing a level is the application's job, not a
+# library's. Forcing DEBUG also made every CDP message build a LogRecord (~4us each,
+# 32x the cost of being filtered at the level check) and meant that any app attaching
+# a root DEBUG handler would repr() multi-megabyte screenshot payloads.
 logger_connection = logging.getLogger(__name__ + '.Connection')
 
 
@@ -90,7 +93,6 @@ class Connection(AsyncIOEventEmitter):
             self.connection = self._transport
             
             # Set up callbacks
-            self.connection.onmessage = self._process_message
             self.connection.onclose = self._onClose
             
             # Process messages directly from the WebSocket until connection is closed
@@ -196,12 +198,6 @@ class Connection(AsyncIOEventEmitter):
         self.loop.create_task(self._async_send(message))
         return id_
 
-    async def _process_message(self, msg: str) -> None:
-        """Callback for handling messages from the websocket transport.
-        This method is called by the transport when a message is received."""
-        # Create a task to process the message asynchronously to avoid blocking the transport
-        self.loop.create_task(self._onMessage(msg))
-        
     async def _onMessage(self, msg: str) -> None:
         """Process a received message and dispatch it to the appropriate handler."""
         try:

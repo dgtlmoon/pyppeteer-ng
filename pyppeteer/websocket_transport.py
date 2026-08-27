@@ -101,23 +101,11 @@ class WebsocketTransport:
             raise ConnectionError("Cannot receive: connection is closed")
             
         try:
-            data = await self.ws.recv()
-            
-            # Handle message through callback if it exists
-            if data and self.onmessage:
-                # Use create_task to avoid blocking the receive loop
-                self.loop.create_task(self._handle_message(data))
-                
-            return data
+            # Note: deliberately does NOT invoke self.onmessage. Dispatching here as well as
+            # returning the data double-handled every message, and doing it via create_task
+            # broke CDP ordering. Connection._recv_loop reads and dispatches inline instead.
+            return await self.ws.recv()
         except Exception as e:
             # Mark socket as closed on any error
             self._socket_open = False
             raise
-    
-    async def _handle_message(self, data):
-        """Process message through the onmessage callback safely."""
-        try:
-            if self.onmessage:
-                await self.onmessage(data)
-        except Exception as e:
-            logger.error(f"Error in onmessage callback: {e}")
